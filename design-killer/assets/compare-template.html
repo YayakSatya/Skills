@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  design-killer option comparison page.
+  Fill ONLY the JSON inside <script id="data">. Each option's `preview` is a path (relative to
+  this file) to the same key screen rendered with that option's DESIGN.md. Write every string
+  in the reader's language, in plain words (no design jargon). This page is usually shown to
+  the client: use formal Indonesian ("Anda"), client-facing tags ("Konsep A"), and leave
+  `source` empty (attribution stays in SOURCE.md / decision.md).
+-->
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pilihan Desain</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --ink: #1b1b1a; --muted: #5f5f5a; --line: #e2e2dd;
+    --focus: #1f5fd6; --chip: #efefea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141414; --panel: #1d1d1c; --ink: #f1f1ee; --muted: #a9a9a3; --line: #33332f;
+      --focus: #7aa7ff; --chip: #2a2a27; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 24px 16px 8px; max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 24px; line-height: 1.2; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); max-width: 70ch; }
+  .bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar-inner { max-width: 1280px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tabs, .devices { display: flex; gap: 6px; flex-wrap: wrap; }
+  .devices { margin-left: auto; }
+  button { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 44px; }
+  button[aria-pressed="true"], button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 1024px) { main { grid-template-columns: 340px 1fr; align-items: start; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  .card h2 { font-size: 20px; margin: 4px 0 12px; line-height: 1.25; }
+  .label { display: inline-block; background: var(--chip); border-radius: 999px; padding: 2px 10px; font-size: 13px; color: var(--muted); }
+  dl { margin: 0; display: grid; gap: 12px; }
+  dt { font-size: 13px; color: var(--muted); }
+  dd { margin: 2px 0 0; }
+  .swatches { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .swatches span { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line); }
+  .source { margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow: hidden; }
+  .frame-wrap { margin: 0 auto; max-width: 100%; transition: width .2s ease; }
+  iframe { display: block; width: 100%; height: 78vh; min-height: 520px; border: 0; border-radius: 8px; background: #fff; }
+  .note { font-size: 13px; color: var(--muted); margin: 8px 4px 0; }
+  @media (prefers-reduced-motion: reduce) { .frame-wrap { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <p id="intro"></p>
+</header>
+
+<div class="bar">
+  <div class="bar-inner">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="devices" role="group" id="devices"></div>
+  </div>
+</div>
+
+<main>
+  <section class="card" id="info" aria-live="polite"></section>
+  <section class="stage">
+    <div class="frame-wrap" id="wrap"><iframe id="frame" title=""></iframe></div>
+    <p class="note" id="note"></p>
+  </section>
+</main>
+
+<script id="data" type="application/json">
+{
+  "lang": "id",
+  "title": "Konsep visual website {{PRODUCT}}",
+  "intro": "Halaman beranda yang sama dalam beberapa konsep visual. Silakan pilih konsep yang paling sesuai dengan citra perusahaan dan calon klien Anda.",
+  "note": "Ini contoh satu halaman. Setelah konsep dipilih, seluruh halaman dibuat dengan konsep tersebut.",
+  "labels": { "feels": "Kesan", "goodFor": "Mengapa cocok", "watchOut": "Perlu diperhatikan", "colors": "Warna utama", "source": "Sumber", "mobile": "HP", "tablet": "Tablet", "desktop": "Laptop" },
+  "options": [
+    {
+      "id": "A",
+      "tag": "Konsep A",
+      "name": "{{OPTION_NAME}}",
+      "feels": "{{PLAIN_WORDS}}",
+      "goodFor": "{{WHY_IT_FITS_THIS_PRD}}",
+      "watchOut": "{{HONEST_TRADEOFF}}",
+      "swatches": ["#111111", "#ffffff", "#3355ff"],
+      "source": "",
+      "preview": "A-slug/preview.html"
+    }
+  ]
+}
+</script>
+<script>
+  const data = JSON.parse(document.getElementById('data').textContent);
+  document.documentElement.lang = data.lang || 'id';
+  document.title = data.title;
+  document.getElementById('title').textContent = data.title;
+  document.getElementById('intro').textContent = data.intro;
+  document.getElementById('note').textContent = data.note;
+
+  const L = data.labels;
+  const devices = [['mobile', 360], ['tablet', 768], ['desktop', null]];
+  const tabs = document.getElementById('tabs');
+  const devBox = document.getElementById('devices');
+  const frame = document.getElementById('frame');
+  const wrap = document.getElementById('wrap');
+  const info = document.getElementById('info');
+  let current = 0, device = 'desktop';
+
+  function el(tag, text, cls) { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n; }
+
+  function renderInfo(o) {
+    info.replaceChildren();
+    info.append(el('span', o.tag || o.id, 'label'), el('h2', o.name));
+    const dl = el('dl');
+    [[L.feels, o.feels], [L.goodFor, o.goodFor], [L.watchOut, o.watchOut]].forEach(([k, v]) => {
+      const d = el('div'); d.append(el('dt', k), el('dd', v)); dl.append(d);
+    });
+    const sw = el('div'); sw.append(el('dt', L.colors));
+    const row = el('div', null, 'swatches');
+    (o.swatches || []).forEach(c => { const s = el('span'); s.style.background = c; s.title = c; row.append(s); });
+    sw.append(row); dl.append(sw);
+    info.append(dl);
+    if (o.source) info.append(el('p', `${L.source}: ${o.source}`, 'source'));
+  }
+
+  function select(i) {
+    current = i;
+    [...tabs.children].forEach((b, j) => { b.setAttribute('aria-selected', String(i === j)); b.tabIndex = i === j ? 0 : -1; });
+    const o = data.options[i];
+    frame.src = o.preview; frame.title = o.name;
+    renderInfo(o);
+    try { localStorage.setItem('dk-option', String(i)); } catch (e) {}
+  }
+
+  function setDevice(name) {
+    device = name;
+    const w = devices.find(d => d[0] === name)[1];
+    wrap.style.width = w ? `${w}px` : '100%';
+    [...devBox.children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.device === name)));
+  }
+
+  data.options.forEach((o, i) => {
+    const b = el('button', o.tag || o.id); b.setAttribute('role', 'tab');
+    b.addEventListener('click', () => select(i));
+    b.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const n = (current + (e.key === 'ArrowRight' ? 1 : -1) + data.options.length) % data.options.length;
+        select(n); tabs.children[n].focus();
+      }
+    });
+    tabs.append(b);
+  });
+  devices.forEach(([name]) => {
+    const b = el('button', L[name]); b.dataset.device = name;
+    b.addEventListener('click', () => setDevice(name)); devBox.append(b);
+  });
+
+  let start = 0;
+  try { start = Math.min(+localStorage.getItem('dk-option') || 0, data.options.length - 1); } catch (e) {}
+  select(start); setDevice(window.innerWidth < 700 ? 'mobile' : 'desktop');
+</script>
+</body>
+</html>
