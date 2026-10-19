@@ -6,7 +6,7 @@ Claude skills by Yayak Satya. Each folder at the root is one skill with its own 
 | --- | --- |
 | [`figma-taste/`](figma-taste/) | Anti-slop design built directly on the Figma canvas: a site-wide design system, flex layout on a 1920 / 12-column guide, dealt compositions, Unsplash imagery, and an in-canvas audit and token check. See its [CHANGELOG](figma-taste/CHANGELOG.md). |
 | [`figma-design-system-scan/`](figma-design-system-scan/) | Scans a Figma frame or page for reusable components and design tokens before any layout or code is generated. |
-| [`figma-scaling/`](figma-scaling/) | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling) plus tablet/mobile rules, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). Includes `scripts/fluid_tokens.py`. See its [CHANGELOG](figma-scaling/CHANGELOG.md). |
+| [`figma-scaling/`](figma-scaling/) | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling), with tablet and mobile derived proportionally from a desktop-only design, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). Includes `scripts/fluid_tokens.py`. See its [CHANGELOG](figma-scaling/CHANGELOG.md). |
 
 ## Install
 

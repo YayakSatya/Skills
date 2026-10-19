@@ -17,19 +17,14 @@ So register the token table once as **named Tailwind theme tokens** and write `p
 
 ### The model in one paragraph
 
-Every scalable value is `clamp(MIN_rem, FLUID_vw, MAX_rem)` with `SOURCE_FRAME = 1920`, `TARGET_FRAME = 1440`, `MAX_FRAME = 2560`, 16px rem base:
-- `FLUID_vw = figma_px / 19.2`
-- `MIN_rem = round_to_0.5px(figma_px × 0.75) / 16`; for **font-size only**, `MIN` is at least `FONT_FLOOR_PX = 15px` (0.9375rem)
-- `MAX_rem = figma_px / 12` (= figma_px × 1.3333 / 16)
-
-Below 1440 the value locks to MIN, 1440-2560 interpolates (exact Figma value at 1920), above 2560 it locks to MAX. Full derivation: SKILL.md Sections 2-3.
+Same values as SKILL.md Section 2: from 1440 up, `clamp(MIN_rem, FLUID_vw, MAX_rem)` on the 1920 → 2560 line (exact Figma value at 1920). Below 1440, spacing and font tokens follow a line from a derived **phone value at 390px** to the 1440 value, so tablet falls proportionally between them; larger values shrink more on phones (120px padding → 53.5px, a 64px H1 → 32px). Element sizes (column widths, icons, images) use the three-point form only (`--size`). Full derivation and tables: SKILL.md Sections 2, 3 and 8.
 
 **Never compute these by hand.** Use the bundled script:
 
 ```bash
-python3 scripts/fluid_tokens.py 377 --class 'flex-[0_1_'   # -> flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
+python3 scripts/fluid_tokens.py 377 --size --class 'flex-[0_1_'  # column width -> flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
 python3 scripts/fluid_tokens.py 22 36 --font                # -> v3 fontSize entries with the 15px floor
-python3 scripts/fluid_tokens.py 56 --v4                     # -> --spacing-fluid-56: clamp(...);
+python3 scripts/fluid_tokens.py 56 --v4                     # -> --spacing-fluid-56: clamp(...); (spacing, with the phone line)
 python3 scripts/fluid_tokens.py --default --v4              # -> the full Section 1 set as @theme lines
 ```
 
@@ -37,7 +32,7 @@ python3 scripts/fluid_tokens.py --default --v4              # -> the full Sectio
 
 ## 1. Token setup
 
-Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys but apply the 15px floor, so they differ from spacing below 20px. Below 11.25px the floor is above the 2560 value, so the script locks the size at 15px (`clamp(0.9375rem, …, 0.9375rem)`); CSS would resolve a hand-written MIN > MAX the same way, but the locked form says what it does.
+Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys with the 15px floor and a stronger phone curve, so they differ from spacing below 20px and from 32px up. Below 11.25px the floor is above the 2560 value, so the script locks the size at 15px (`clamp(0.9375rem, …, 0.9375rem)`); CSS would resolve a hand-written MIN > MAX the same way, but the locked form says what it does.
 
 ### Tailwind v3 (`tailwind.config.ts` / `.js`)
 
@@ -46,33 +41,33 @@ module.exports = {
   theme: {
     extend: {
       spacing: {
-        'fluid-4':   'clamp(0.1875rem, 0.2083vw, 0.3333rem)',   // 4px
-        'fluid-8':   'clamp(0.375rem, 0.4167vw, 0.6667rem)',    // 8px
+        'fluid-4':   'clamp(0.1875rem, 0.2083vw, 0.3333rem)',  // 4px
+        'fluid-8':   'clamp(0.375rem, 0.4167vw, 0.6667rem)',  // 8px
         'fluid-10':  'clamp(0.46875rem, 0.5208vw, 0.8333rem)',  // 10px
-        'fluid-12':  'clamp(0.5625rem, 0.625vw, 1rem)',         // 12px
-        'fluid-16':  'clamp(0.75rem, 0.8333vw, 1.3333rem)',     // 16px
-        'fluid-20':  'clamp(0.9375rem, 1.0417vw, 1.6667rem)',   // 20px
-        'fluid-24':  'clamp(1.125rem, 1.25vw, 2rem)',           // 24px
-        'fluid-28':  'clamp(1.3125rem, 1.4583vw, 2.3333rem)',   // 28px
-        'fluid-32':  'clamp(1.5rem, 1.6667vw, 2.6667rem)',      // 32px
-        'fluid-40':  'clamp(1.875rem, 2.0833vw, 3.3333rem)',    // 40px
-        'fluid-48':  'clamp(2.25rem, 2.5vw, 4rem)',             // 48px
-        'fluid-64':  'clamp(3rem, 3.3333vw, 5.3333rem)',        // 64px
-        'fluid-80':  'clamp(3.75rem, 4.1667vw, 6.6667rem)',     // 80px
-        'fluid-120': 'clamp(5.625rem, 6.25vw, 10rem)',          // 120px
-        'fluid-160': 'clamp(7.5rem, 8.3333vw, 13.3333rem)',     // 160px
+        'fluid-12':  'clamp(0.5625rem, 0.625vw, 1rem)',  // 12px
+        'fluid-16':  'clamp(0.75rem, 0.8333vw, 1.3333rem)',  // 16px
+        'fluid-20':  'clamp(0.9375rem, 1.0417vw, 1.6667rem)',  // 20px
+        'fluid-24':  'clamp(1.125rem, 1.25vw, 2rem)',  // 24px
+        'fluid-28':  'clamp(1.3125rem, 1.4583vw, 2.3333rem)',  // 28px
+        'fluid-32':  'clamp(1.5rem, 1.6667vw, 2.6667rem)',  // 32px
+        'fluid-40':  'clamp(1.7143rem, max(min(1.6607rem + 0.2381vw, 1.875rem), 2.0833vw), 3.3333rem)',  // 40px
+        'fluid-48':  'clamp(1.9286rem, max(min(1.8214rem + 0.4762vw, 2.25rem), 2.5vw), 4rem)',  // 48px
+        'fluid-64':  'clamp(2.2929rem, max(min(2.0571rem + 1.0476vw, 3rem), 3.3333vw), 5.3333rem)',  // 64px
+        'fluid-80':  'clamp(2.5929rem, max(min(2.2071rem + 1.7143vw, 3.75rem), 4.1667vw), 6.6667rem)',  // 80px
+        'fluid-120': 'clamp(3.2786rem, max(min(2.4964rem + 3.4762vw, 5.625rem), 6.25vw), 10rem)',  // 120px
+        'fluid-160': 'clamp(3.8679rem, max(min(2.6571rem + 5.381vw, 7.5rem), 8.3333vw), 13.3333rem)',  // 160px
       },
       fontSize: {
-        'fluid-12': 'clamp(0.9375rem, 0.625vw, 1rem)',       // 12px, floored to 15px
-        'fluid-16': 'clamp(0.9375rem, 0.8333vw, 1.3333rem)', // 16px, floored to 15px
-        'fluid-18': 'clamp(0.9375rem, 0.9375vw, 1.5rem)',    // 18px, floored to 15px
-        'fluid-20': 'clamp(0.9375rem, 1.0417vw, 1.6667rem)', // 20px, exactly at floor
-        'fluid-24': 'clamp(1.125rem, 1.25vw, 2rem)',         // 24px and up: same as spacing
-        'fluid-28': 'clamp(1.3125rem, 1.4583vw, 2.3333rem)',
-        'fluid-32': 'clamp(1.5rem, 1.6667vw, 2.6667rem)',
-        'fluid-40': 'clamp(1.875rem, 2.0833vw, 3.3333rem)',
-        'fluid-48': 'clamp(2.25rem, 2.5vw, 4rem)',
-        'fluid-64': 'clamp(3rem, 3.3333vw, 5.3333rem)',
+        'fluid-12':  'clamp(0.9375rem, 0.625vw, 1rem)',  // 12px
+        'fluid-16':  'clamp(0.9375rem, 0.8333vw, 1.3333rem)',  // 16px
+        'fluid-18':  'clamp(0.9375rem, 0.9375vw, 1.5rem)',  // 18px
+        'fluid-20':  'clamp(0.9375rem, 1.0417vw, 1.6667rem)',  // 20px
+        'fluid-24':  'clamp(1.125rem, 1.25vw, 2rem)',  // 24px
+        'fluid-28':  'clamp(1.3125rem, 1.4583vw, 2.3333rem)',  // 28px
+        'fluid-32':  'clamp(1.4036rem, max(min(1.3714rem + 0.1429vw, 1.5rem), 1.6667vw), 2.6667rem)',  // 32px
+        'fluid-40':  'clamp(1.5857rem, max(min(1.4893rem + 0.4286vw, 1.875rem), 2.0833vw), 3.3333rem)',  // 40px
+        'fluid-48':  'clamp(1.7036rem, max(min(1.5214rem + 0.8095vw, 2.25rem), 2.5vw), 4rem)',  // 48px
+        'fluid-64':  'clamp(1.9714rem, max(min(1.6286rem + 1.5238vw, 3rem), 3.3333vw), 5.3333rem)',  // 64px
       },
       maxWidth: {
         'layout': '160rem',                                       // 2560px
@@ -106,12 +101,12 @@ v4 reads tokens from theme-variable **namespaces**, and the namespace decides wh
   --spacing-fluid-24: clamp(1.125rem, 1.25vw, 2rem);
   --spacing-fluid-28: clamp(1.3125rem, 1.4583vw, 2.3333rem);
   --spacing-fluid-32: clamp(1.5rem, 1.6667vw, 2.6667rem);
-  --spacing-fluid-40: clamp(1.875rem, 2.0833vw, 3.3333rem);
-  --spacing-fluid-48: clamp(2.25rem, 2.5vw, 4rem);
-  --spacing-fluid-64: clamp(3rem, 3.3333vw, 5.3333rem);
-  --spacing-fluid-80: clamp(3.75rem, 4.1667vw, 6.6667rem);
-  --spacing-fluid-120: clamp(5.625rem, 6.25vw, 10rem);
-  --spacing-fluid-160: clamp(7.5rem, 8.3333vw, 13.3333rem);
+  --spacing-fluid-40: clamp(1.7143rem, max(min(1.6607rem + 0.2381vw, 1.875rem), 2.0833vw), 3.3333rem);
+  --spacing-fluid-48: clamp(1.9286rem, max(min(1.8214rem + 0.4762vw, 2.25rem), 2.5vw), 4rem);
+  --spacing-fluid-64: clamp(2.2929rem, max(min(2.0571rem + 1.0476vw, 3rem), 3.3333vw), 5.3333rem);
+  --spacing-fluid-80: clamp(2.5929rem, max(min(2.2071rem + 1.7143vw, 3.75rem), 4.1667vw), 6.6667rem);
+  --spacing-fluid-120: clamp(3.2786rem, max(min(2.4964rem + 3.4762vw, 5.625rem), 6.25vw), 10rem);
+  --spacing-fluid-160: clamp(3.8679rem, max(min(2.6571rem + 5.381vw, 7.5rem), 8.3333vw), 13.3333rem);
 
   --text-fluid-12: clamp(0.9375rem, 0.625vw, 1rem);
   --text-fluid-16: clamp(0.9375rem, 0.8333vw, 1.3333rem);
@@ -119,10 +114,10 @@ v4 reads tokens from theme-variable **namespaces**, and the namespace decides wh
   --text-fluid-20: clamp(0.9375rem, 1.0417vw, 1.6667rem);
   --text-fluid-24: clamp(1.125rem, 1.25vw, 2rem);
   --text-fluid-28: clamp(1.3125rem, 1.4583vw, 2.3333rem);
-  --text-fluid-32: clamp(1.5rem, 1.6667vw, 2.6667rem);
-  --text-fluid-40: clamp(1.875rem, 2.0833vw, 3.3333rem);
-  --text-fluid-48: clamp(2.25rem, 2.5vw, 4rem);
-  --text-fluid-64: clamp(3rem, 3.3333vw, 5.3333rem);
+  --text-fluid-32: clamp(1.4036rem, max(min(1.3714rem + 0.1429vw, 1.5rem), 1.6667vw), 2.6667rem);
+  --text-fluid-40: clamp(1.5857rem, max(min(1.4893rem + 0.4286vw, 1.875rem), 2.0833vw), 3.3333rem);
+  --text-fluid-48: clamp(1.7036rem, max(min(1.5214rem + 0.8095vw, 2.25rem), 2.5vw), 4rem);
+  --text-fluid-64: clamp(1.9714rem, max(min(1.6286rem + 1.5238vw, 3rem), 3.3333vw), 5.3333rem);
 
   --container-layout: 160rem;
   --container-layout-content: clamp(75rem, 83.3333vw, 133.3333rem);
@@ -138,7 +133,9 @@ v4 reads tokens from theme-variable **namespaces**, and the namespace decides wh
 </div>
 ```
 
-`px-fluid-32` resolves to `padding-inline: clamp(1.5rem, 1.6667vw, 2.6667rem)` in v4 (`padding-left` + `padding-right` in v3). Spacing, sizing, gap, inset and position utilities all draw from the spacing scale, so one token set covers them.
+`px-fluid-32` resolves to `padding-inline: clamp(1.5rem, 1.6667vw, 2.6667rem)` in v4 (`padding-left` + `padding-right` in v3). Spacing, sizing, gap, inset and position utilities all draw from the spacing scale.
+
+**Widths and heights are sizes, not spacing.** `w-fluid-*` / `h-fluid-*` would follow the phone curve (a 64px icon at 37px on a phone). For element sizes (icons, avatars, image heights, fixed card widths) generate an arbitrary value with `--size`, e.g. `size-[clamp(3rem,3.3333vw,5.3333rem)]`, or register them under their own keys from `--size` output. Column widths become `w-full` below `lg` anyway (Section 4).
 
 ### Line height: always pair `text-fluid-*` with a leading
 
@@ -148,11 +145,11 @@ Tailwind's own `text-xl` etc. set a line-height; the `text-fluid-*` tokens above
 - **Baked into the token** (verified with 3.4.17 and 4.1.11; `leading-*` still overrides it):
   ```js
   // v3
-  fontSize: { 'fluid-32': ['clamp(1.5rem, 1.6667vw, 2.6667rem)', { lineHeight: '1.2' }] }
+  fontSize: { 'fluid-32': ['clamp(1.4036rem, max(min(1.3714rem + 0.1429vw, 1.5rem), 1.6667vw), 2.6667rem)', { lineHeight: '1.2' }] }
   ```
   ```css
   /* v4 */
-  --text-fluid-32: clamp(1.5rem, 1.6667vw, 2.6667rem);
+  --text-fluid-32: clamp(1.4036rem, max(min(1.3714rem + 0.1429vw, 1.5rem), 1.6667vw), 2.6667rem);
   --text-fluid-32--line-height: 1.2;
   ```
 
@@ -165,8 +162,10 @@ Take the value from Figma (line height ÷ font size, unitless) so it follows the
 Values without a token (13px, 377px) get an arbitrary class. Generate it with the script; it already formats the class correctly:
 
 ```bash
-python3 scripts/fluid_tokens.py 377 --class 'flex-[0_1_'
+python3 scripts/fluid_tokens.py 377 --size --class 'flex-[0_1_'   # a column width: --size
 # flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
+python3 scripts/fluid_tokens.py 96 --class 'py-['                 # a one-off spacing value
+# py-[clamp(2.8929rem,max(min(2.3571rem_+_2.381vw,4.5rem),5vw),8rem)]
 ```
 
 **Underscore rule.** Inside the brackets, top-level spaces must be underscores, or the class is never generated:
@@ -176,7 +175,7 @@ python3 scripts/fluid_tokens.py 377 --class 'flex-[0_1_'
 ❌ flex-[0 1 clamp(17.6875rem, 19.6354vw, 31.4167rem)]
 ```
 
-Commas inside `clamp(...)` are fine. Only the spaces separating values (here grow / shrink / basis) need `_`. This is the most common breakage when an agent pastes a clamp string into a class.
+Commas inside `clamp(...)` are fine. The spaces separating values (here grow / shrink / basis) and the spaces around `+` / `-` in the phone line need `_`; the script writes both. This is the most common breakage when an agent pastes a clamp string into a class.
 
 **Promote at 3 uses.** A one-off value used 3 or more times becomes a named token (Section 1), ideally with a semantic name in `flexBasis` / `maxWidth` (v3) or `--container-*` / `--spacing-*` (v4), e.g. `footer-col`.
 
@@ -267,12 +266,12 @@ So negate with the prefix and keep the clamp positive. This is the Tailwind form
 
 ---
 
-## 7. Mobile heading overrides
+## 7. Mobile heading check
 
-SKILL.md Section 8: large display headings need a mobile clamp, or single words overflow at 360-375px. Because the original is a max-width rule, use the `max-md:` variant (Tailwind v3.2+ and v4):
+`text-fluid-*` already brings large headings down on phones (`text-fluid-64` is 32px at 390, SKILL.md Section 8). Still check the longest word of each display heading at 360px. If one overflows, override that heading only, with the `max-md:` variant (Tailwind v3.2+ and v4):
 
 ```html
-<h1 class="text-fluid-48 max-md:text-[clamp(1.85rem,7vw,2.6rem)]">...</h1>
+<h1 class="text-fluid-64 max-md:text-[clamp(1.85rem,7vw,2.6rem)]">...</h1>
 ```
 
 ❌ `md:text-[clamp(1.85rem,7vw,2.6rem)]` applies the mobile size on tablet and desktop instead.
@@ -290,6 +289,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 - **Pill / circle radius**: `rounded-full` is 9999px.
 - **Line height**: `leading-*` is unitless and follows the fluid font size.
 - **Letter spacing**: `tracking-*` is em-based and follows the fluid font size.
+- **Tap targets**: buttons, links and form controls stay at least `min-h-11` (44px) on mobile.
 
 ---
 
@@ -309,7 +309,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 
 1. Read `figma_px` from Figma inspect (on the 1920 canvas).
 2. Token exists for that px (Section 1)? Use it: `p-fluid-32`, `text-fluid-24`.
-3. No token, one-off: generate with `scripts/fluid_tokens.py` (`--font` for font sizes) and use it as an arbitrary value with underscores for top-level spaces.
+3. No token, one-off: generate with `scripts/fluid_tokens.py` (spacing by default, `--font` for font sizes, `--size` for widths, heights, icons and images) and use it as an arbitrary value; `--class` writes the underscores.
 4. Same one-off value 3+ times: promote it to a named token.
 5. Flex child columns: clamp with the 2560 MAX, never a fixed 1920-derived cap (Section 3).
 6. Row stacks into a column: pair the fluid basis with its reset in the same className, in the right direction (Section 4).
@@ -332,7 +332,8 @@ Everything in SKILL.md Section 12, plus:
 - [ ] Every `text-fluid-*` has a unitless line-height (a `leading-*`, the `/leading` shorthand, or one baked into the token).
 - [ ] Tailwind scans every file containing `fluid-*` or arbitrary clamp classes (v3 `content` globs; v4 automatic detection or `@source` for paths outside the project).
 - [ ] No custom `1440:` / `2560:` breakpoints.
-- [ ] Layout checked at 360, 768, 1024, 1440, 1920 and 2560.
+- [ ] Widths and heights of elements come from `--size`, not `w-fluid-*` / `h-fluid-*` spacing tokens.
+- [ ] Layout checked at 360, 390, 768, 1024, 1440, 1920 and 2560.
 
 ---
 
