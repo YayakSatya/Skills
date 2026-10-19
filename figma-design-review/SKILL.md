@@ -157,6 +157,7 @@ still open. The copy replaces the original only when the user says so; never del
 | --- | --- |
 | `scripts/inspect.figma.js` | Read-only: the frame's own system, per-section table, measured findings. |
 | `scripts/compare.figma.js` | Read-only: every change between the original and the copy, by section; Keep violations; change share against the budget. |
+| `scripts/selftest.figma.js` | Scratch files only: builds a test page with planted slips and a polished copy; its header lists what `inspect` and `compare` must return. Run it before trusting the scripts in a new Figma version. |
 | `scripts/annotate.figma.js` | Pins `Review:` annotations; `CLEAR = true` removes only these. |
 | `references/review-lenses.md` | How to look: the lenses, confirming measured findings, verdict rules. |
 | `references/editing.md` | How to change: duplicate, reuse the system, Plugin API snippets, the Reference build. |

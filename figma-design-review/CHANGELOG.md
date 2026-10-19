@@ -33,8 +33,10 @@ designer's own system.
   (expected differences: `absoluteBoundingBox` on rotated layers, `getStyledTextSegments` on text with
   mixed fills, instance children identity).
 - The duplicate and edit snippets in `references/editing.md`.
+- `scripts/selftest.figma.js`: builds the test page with real nodes (styles, a colour variable, a Button
+  component, an image fill) plus a polished copy, and lists what `inspect` and `compare` must return on
+  them. Parsed in Node only; not yet run in Figma (no scratch file was made in this session).
 
 ### Open
-- No `selftest.figma.js` yet; add one after the first real run shows which API behaviours matter.
 - Mobile-specific checks are light (small body text, tap size); a run on a real phone frame should say
   what else to measure.
