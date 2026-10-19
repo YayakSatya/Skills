@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- Fixture for check_layout.test.mjs: each block reproduces one problem from notes/run-1..3. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; font: 16px/1.5 monospace; }
+  header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #eee; z-index: 5; }
+  /* run 3 #2: a --grid height (71.875vw) as the first screen: 736px at 1024x768 */
+  .hero { height: clamp(46rem, 71.875vw, 115rem); background: #ccc; }
+  /* run 2 #1: a heading width from grid columns shrinks faster than its type */
+  .grid-title { width: 26vw; font-size: clamp(3rem, 3.75vw, 6rem); line-height: 1.1; margin: 0; }
+  .measure { width: 20ch; }
+  .covered { position: relative; height: 120px; }
+  .covered img { display: none; position: absolute; left: 0; top: 0; width: 300px; height: 100px; z-index: 2; }
+  @media (max-width: 1100px) { .covered img { display: block; } }  /* run 1 #2: a photo over the menu text */
+  .overlay { position: relative; height: 120px; }
+  .overlay img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .overlay p { position: relative; z-index: 1; margin: 0; }  /* text on its own background photo: fine */
+  .clip { height: 60px; overflow: hidden; }
+  .wide { width: 380px; height: 10px; display: none; }
+  @media (max-width: 400px) { .wide { display: block; } }
+  .trail { display: none; } @media (hover: hover) and (pointer: fine) { .trail { display: block; } }
+</style></head>
+<body>
+  <header><a href="#">Menu</a></header>
+  <section class="hero"><h1>Hero</h1></section>
+  <section><h2 class="grid-title">Shaped by hand, made to last far</h2></section>
+  <section><p class="measure">aaaaaaaaaa bbbbbbbb c</p></section>
+  <section class="covered"><p>Special Editions and Collections menu text</p><img alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='100'><rect width='300' height='100' fill='red'/></svg>"></section>
+  <section class="overlay"><img alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><rect width='10' height='10' fill='blue'/></svg>"><p>Title on its own background photo</p></section>
+  <section class="clip"><p>line one</p><p>line two</p><p>line three</p><p>line four</p></section>
+  <section><div class="wide"></div><a href="#" style="font-size:12px">tiny link</a><div class="trail">trail</div></section>
+</body></html>

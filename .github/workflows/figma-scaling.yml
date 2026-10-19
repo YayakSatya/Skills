@@ -16,7 +16,7 @@ jobs:
           python-version: '3.9'
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install Tailwind 3 and 4 for the compile tests
         run: |
           npm install --prefix "$RUNNER_TEMP/tw3" --no-save --silent tailwindcss@3.4.17
@@ -26,3 +26,7 @@ jobs:
           TAILWIND_V3: ${{ runner.temp }}/tw3
           TAILWIND_V4: ${{ runner.temp }}/tw4
         run: python3 figma-scaling/scripts/test/test_fluid_tokens.py
+      - name: Layout check script against its fixture (Chrome from the runner image)
+        env:
+          CHROME: /usr/bin/google-chrome
+        run: node figma-scaling/scripts/test/check_layout.test.mjs

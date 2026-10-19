@@ -27,7 +27,11 @@ the tables in `SKILL.md` and `references/tailwind.md`:
 
 ```bash
 python3 figma-scaling/scripts/test/test_fluid_tokens.py
+node figma-scaling/scripts/test/check_layout.test.mjs     # Node 22+ and Chrome
 ```
+
+To check a sliced page at real screen sizes (line counts, overlap, first screen, tap targets):
+`node figma-scaling/scripts/check_layout.mjs <url> --screens`.
 
 CI runs these commands on every push and pull request that touches the skill. Releases are tagged `figma-taste-v<N>`.
 Contributor rules are in [CLAUDE.md](CLAUDE.md).

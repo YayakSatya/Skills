@@ -242,6 +242,23 @@ class Kinds(unittest.TestCase):
         self.assertIn(ft.clamp(88, font=True, mobile=phone[88]), out)
 
 
+class Measure(unittest.TestCase):
+    """run-2 note 1: text-block widths in em from Figma."""
+
+    def test_values_from_the_field_notes(self):
+        self.assertEqual(run("--measure", "1320", "210")[1].strip(), "6.2857em")  # hero title
+        self.assertEqual(run("--measure", "570", "24")[1].strip(), "23.75em")     # hero intro
+        self.assertEqual(run("--measure", "720", "72", "--class", "max-w-[")[1].strip(), "max-w-[10em]")
+
+    def test_em_width_equals_figma_width_at_1920(self):
+        for width, font in ((1320, 210), (570, 20), (598, 72)):
+            em = float(ft.measure(width, font)[:-2])
+            self.assertAlmostEqual(em * ft.value_at(font, 1920, font=True), width, delta=0.05 * font)
+
+    def test_bad_input(self):
+        for args in (["--measure"], ["--measure", "570"], ["--measure", "570", "0"], ["--measure", "570", "24", "--css"]):
+            self.assertEqual(run(*args)[0], 2, args)
+
 @unittest.skipUnless(os.environ.get("TAILWIND_V3") and os.environ.get("TAILWIND_V4"),
                      "set TAILWIND_V3 / TAILWIND_V4 to folders with tailwindcss 3 and 4 (+ @tailwindcss/cli) installed")
 class TailwindCompile(unittest.TestCase):

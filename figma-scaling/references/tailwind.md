@@ -148,6 +148,10 @@ Both print into `--spacing-*` on purpose: in v4 that namespace feeds `w-`, `h-`,
 
 Use `--grid` for columns, cards, gutters, section heights and everything inside a composed box (absolute `top`/`left`, inner padding), so the whole box shrinks with the screen between 1024 and 1440. Use `--size` for icons, avatars, logos and button heights.
 
+**Grid tokens only from `lg:`.** Below 1024 a grid token holds its 1024 value (about 53% of Figma). Write `lg:w-grid-427`, never a bare `w-grid-427` or `md:w-grid-427`, and give tablet and phone their own width (`w-full`, a rem, or an em measure).
+
+**Text widths are em, not grid** (SKILL.md Section 8): `lg:max-w-[6.2857em]` for a heading, `max-w-[28.5em]` for a paragraph measure, from `fluid_tokens.py --measure WIDTH FONT --class 'max-w-['`. Beside a grid-positioned photo, cap it: `w-[min(28.5em,var(--spacing-grid-640))]`. Paragraphs get `text-pretty`.
+
 ### Line height: always pair `text-fluid-*` with a leading
 
 Tailwind's own `text-xl` etc. set a line-height; the `text-fluid-*` tokens above set **font-size only**. Without a leading, a heading inherits the body's line-height (often 1.5) and reads loose. Pick one, per project:
@@ -205,6 +209,8 @@ Same rule as SKILL.md Section 4: when the container grows to 2560px, inner flex 
 </div>
 ```
 
+A column that holds an em-width heading gets `min-w-0`, or the em width grows the column and the page scrolls sideways.
+
 ---
 
 ## 4. Responsive flex reset
@@ -260,7 +266,29 @@ Fluid desktop padding (e.g. 80px) would crush content on small screens, so lock 
 <section class="px-fluid-80 max-lg:px-8 max-md:px-4">...</section>
 ```
 
-Mobile tier also stacks form rows (`max-md:flex-col max-md:w-full`) and gives maps/embeds `aspect-[4/3] min-h-[280px]`.
+Mobile tier also stacks form rows (`max-md:flex-col max-md:w-full`) and gives maps/embeds `aspect-[4/3] min-h-[280px]`. Tablet puts short groups (contact blocks, link lists) in two columns: `md:grid md:grid-cols-2 lg:flex`.
+
+### First screen
+
+A hero built from a grid height keeps a viewport floor from `lg` too: `lg:h-grid-1380 min-h-svh` (never `lg:min-h-0`). Without it a 1024×768 tablet shows the next section under the first screen.
+
+### Input, not width (SKILL.md Section 6)
+
+`lg:` means wide, not "has a mouse": a tablet in landscape is `lg` with touch. Put mouse-only layout (cursor trails, hover reveals, held full-screen sections) behind a mouse variant:
+
+```css
+/* v4, app/globals.css */
+@custom-variant mouse (@media (hover: hover) and (pointer: fine));
+```
+```js
+// v3, tailwind.config.js
+plugins: [require('tailwindcss/plugin')(({ addVariant }) => addVariant('mouse', '@media (hover: hover) and (pointer: fine)'))]
+```
+```html
+<section class="py-fluid-120 mouse:lg:h-svh mouse:lg:py-0">...</section>
+```
+
+v4's built-in `pointer-fine:` is `@media (pointer: fine)` only, without the hover check, and v3 has no pointer variant (both verified by compiling 4.1.11 and 3.4.17).
 
 ---
 
@@ -353,7 +381,10 @@ Everything in SKILL.md Section 12, plus:
 - [ ] No custom `1440:` / `2560:` breakpoints.
 - [ ] Widths, heights and positions come from `--grid` / `--size` tokens (`w-grid-*`, `size-size-*`), never `w-fluid-*` / `h-fluid-*` / `top-fluid-*`.
 - [ ] Interactive text has `min-h-11`; tap targets re-measured after font token changes.
-- [ ] Layout checked at 360, 390, 768, 1024, 1440, 1920 and 2560.
+- [ ] Grid tokens only behind `lg:` / `xl:`; text widths in em (`max-w-[Nem]`), paragraphs `text-pretty`.
+- [ ] Mouse-only layout behind `mouse:` (not `lg:` alone, not v4 `pointer-fine:` alone).
+- [ ] Hero keeps `min-h-svh` at `lg`.
+- [ ] `node scripts/check_layout.mjs <url>` clean, at real sizes with touch (SKILL.md Section 12).
 
 ---
 

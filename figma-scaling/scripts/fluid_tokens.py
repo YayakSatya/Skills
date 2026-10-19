@@ -5,6 +5,9 @@ Usage:
     python3 fluid_tokens.py <figma_px> [<figma_px> ...] [KIND] [--mobile PX] [--min-ratio R]
                             [--css | --v4 | --class PREFIX]
     python3 fluid_tokens.py --default [--css | --v4]   # the standard token set (SKILL.md Section 3)
+    python3 fluid_tokens.py --measure WIDTH FONT [--class PREFIX]
+                    # a text block's width in em from Figma: heading max-width, paragraph measure
+                    # (SKILL.md Section 8, "Text-block widths"), e.g. --measure 570 24 -> 23.75em
 
   KIND (SKILL.md Section 11, step 1), default spacing (padding, margin, gap):
     --font [ROLE]   font-size, text curve for mobile. ROLE sets the floor, never above the Figma
@@ -170,10 +173,27 @@ def take(args, flag, convert, error):
     return value, None
 
 
+def measure(width, font_px):
+    """A text block's Figma width in em, so it keeps its line breaks at every size of its font."""
+    return f"{fmt(width / font_px)}em"
+
+
 def main(argv):
     args = argv[1:]
     if not args:
         return usage()
+    if "--measure" in args:
+        i = args.index("--measure")
+        try:
+            width, font_px = float(args[i + 1]), float(args[i + 2])
+        except (IndexError, ValueError):
+            return usage("--measure needs WIDTH and FONT in px, e.g. --measure 570 24")
+        del args[i:i + 3]
+        prefix, err = take(args, "--class", str, "--class needs a PREFIX, e.g. --class 'max-w-['")
+        if err or args or width <= 0 or font_px <= 0:
+            return usage(err or "--measure takes WIDTH FONT (positive) and optionally --class PREFIX")
+        print(f"{prefix}{measure(width, font_px)}]" if prefix else measure(width, font_px))
+        return 0
     prefix, err = take(args, "--class", str, "--class needs a PREFIX, e.g. --class 'flex-[0_1_'")
     mobile, err = (None, err) if err else take(args, "--mobile", float, "--mobile needs a px value")
     ratio, err = (None, err) if err else take(args, "--min-ratio", float, "--min-ratio needs a number, e.g. 1.15")
