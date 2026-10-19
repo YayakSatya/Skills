@@ -7,9 +7,11 @@ from 1440 up every value equals the three-point model, below 1440 it is continuo
 and never above the 1440 value, and font sizes never go under 15px.
 """
 
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -105,10 +107,10 @@ class Tables(unittest.TestCase):
     def test_documented_examples(self):
         for text in (SOURCE_SKILL, SKILL):
             self.assertNotIn("17.6718rem", text)
-        self.assertIn("clamp(17.6875rem, 19.6354vw, 31.4167rem)", SOURCE_SKILL)
-        code, out = run("377", "--size", "--class", "flex-[0_1_")
+        self.assertIn(ft.clamp(377, grid=True), SOURCE_SKILL)  # Section 4 column (run-1 note 2: columns are grid)
+        code, out = run("377", "--grid", "--class", "flex-[0_1_")
         self.assertEqual(code, 0)
-        self.assertEqual(out.strip(), "flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]")
+        self.assertEqual(out.strip(), "flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]")
         self.assertIn(out.strip(), SKILL)
         code, out = run("96", "--class", "py-[")
         self.assertEqual(code, 0)
@@ -183,10 +185,114 @@ def evaluate(css, width):
     return eval(expr, {"_clamp": lambda lo, v, hi: max(lo, min(v, hi)), "max": max, "min": min})
 
 
+class Kinds(unittest.TestCase):
+    """run-1 notes 1-6: --grid, --size names, --mobile, font roles, --min-ratio."""
+
+    PXS = [x / 2 for x in range(1, 641)]
+
+    def test_v4_size_and_grid_use_the_spacing_namespace(self):  # note 1
+        self.assertEqual(run("46", "--size", "--v4")[1].split(":")[0].strip(), "--spacing-size-46")
+        self.assertEqual(run("315", "--grid", "--v4")[1].split(":")[0].strip(), "--spacing-grid-315")
+        self.assertIn("'size-46':", run("46", "--size")[1])
+
+    def test_grid_is_proportional_from_1024(self):  # note 2
+        for px in self.PXS:
+            for w in range(1024, 2561, 16):
+                self.assertAlmostEqual(ft.value_at(px, w, grid=True), px * w / 1920, delta=0.25, msg=(px, w))
+            self.assertEqual(ft.value_at(px, 800, grid=True), ft.model(px, grid=True)["laptop"])  # held below 1024
+            for w in range(1441, 3001, 40):  # from 1440 up the same as --size
+                self.assertAlmostEqual(ft.value_at(px, w, grid=True), ft.value_at(px, w, size=True), delta=0.25)
+
+    def test_mobile_override(self):  # note 4
+        for px in (24, 46, 88, 120):
+            for phone in (px * 0.3, px * 0.6, px * 0.9):
+                self.assertAlmostEqual(ft.value_at(px, 390, font=True, mobile=phone), phone, places=6)
+                old = three_point(px, True)
+                for w in range(1440, 3001, 40):
+                    self.assertAlmostEqual(ft.value_at(px, w, font=True, mobile=phone), old(w), places=6)
+        # a phone value above the 1440 value (body 20px with an 18px Figma mobile mode, body role)
+        self.assertAlmostEqual(ft.value_at(20, 390, font=True, role="body", mobile=18), 18, places=6)
+        self.assertAlmostEqual(ft.value_at(20, 1440, font=True, role="body", mobile=18), 16, places=6)
+        self.assertAlmostEqual(ft.value_at(20, 1920, font=True, role="body", mobile=18), 20, places=6)
+        code, out = run("20", "--font", "body", "--mobile", "18", "--css")
+        self.assertEqual(code, 0)
+        css = re.search(CLAMP, out).group(0)
+        for w in (360, 390, 768, 1440, 1920, 2560):
+            self.assertAlmostEqual(evaluate(css, w), ft.value_at(20, w, True, role="body", mobile=18), delta=0.02)
+
+    def test_font_roles_never_raise_text_above_figma(self):  # note 6
+        for role, floor in (("body", 16), ("ui", 14), ("caption", 12)):
+            for px in self.PXS[16:]:  # 8.5px and up
+                self.assertAlmostEqual(ft.value_at(px, 1920, font=True, role=role), px, places=6, msg=(role, px))
+                for w in range(300, 3001, 50):
+                    self.assertGreaterEqual(ft.value_at(px, w, font=True, role=role), min(floor, px) - 1e-9)
+        self.assertEqual(ft.value_at(14, 1440, font=True, role="caption"), 12)
+        self.assertEqual(ft.value_at(14, 1440, font=True), 15)  # --font alone keeps the 15px floor
+
+    def test_min_ratio_keeps_heading_steps(self):  # note 5
+        phone = ft.keep_ratio([210, 88, 72], 1.15)
+        self.assertGreaterEqual(phone[88] / phone[72], 1.15)
+        self.assertGreaterEqual(phone[210] / phone[88], 1.15)
+        for px, v in phone.items():
+            self.assertLessEqual(v, ft.model(px, font=True)["laptop"])
+        close = ft.keep_ratio([24, 26], 1.15)  # never more than the desktop ratio
+        self.assertLessEqual(close[26] / close[24], 26 / 24 + 0.03)
+        code, out = run("72", "88", "210", "--font", "--min-ratio", "1.15", "--v4")
+        self.assertEqual(code, 0)
+        self.assertIn(ft.clamp(88, font=True, mobile=phone[88]), out)
+
+
+@unittest.skipUnless(os.environ.get("TAILWIND_V3") and os.environ.get("TAILWIND_V4"),
+                     "set TAILWIND_V3 / TAILWIND_V4 to folders with tailwindcss 3 and 4 (+ @tailwindcss/cli) installed")
+class TailwindCompile(unittest.TestCase):
+    """Compiles references/tailwind.md and the script output with real Tailwind (run-1 note 1)."""
+
+    CLASSES = ("py-fluid-120 text-fluid-64 -mt-fluid-120 gap-fluid-40 max-w-layout max-w-layout-content "
+               "w-size-46 h-size-46 top-size-46 max-w-size-46 size-size-46 w-grid-315 max-w-grid-315")
+
+    def compile(self, version, css, config=None):
+        with tempfile.TemporaryDirectory(dir=os.environ[f"TAILWIND_V{version}"]) as d:  # v4 resolves @import from here
+            Path(d, "index.html").write_text(f'<div class="{self.CLASSES}"></div>')
+            if version == 3:
+                Path(d, "tailwind.config.js").write_text(config.replace(
+                    "module.exports = {", f"module.exports = {{ content: ['{d}/index.html'],", 1))
+                Path(d, "in.css").write_text("@tailwind utilities;")
+                cmd = [str(Path(os.environ["TAILWIND_V3"], "node_modules/.bin/tailwindcss")),
+                       "-c", f"{d}/tailwind.config.js", "-i", f"{d}/in.css"]
+            else:
+                Path(d, "in.css").write_text(f'@import "tailwindcss";\n@source "{d}/index.html";\n{css}')
+                cmd = [str(Path(os.environ["TAILWIND_V4"], "node_modules/.bin/tailwindcss")), "-i", f"{d}/in.css"]
+            p = subprocess.run(cmd, capture_output=True, text=True, cwd=os.environ[f"TAILWIND_V{version}"])
+            self.assertEqual(p.returncode, 0, p.stderr)
+            return p.stdout
+
+    def test_v4(self):
+        extra = run("46", "--size", "--v4")[1] + run("315", "--grid", "--v4")[1]
+        theme = block("@theme {").rstrip() + "\n" + extra + "}"
+        out = self.compile(4, theme)
+        for cls in self.CLASSES.split():
+            self.assertRegex(out, r"\." + re.escape(cls).replace("\\-", "-") + r"\s*\{", cls)
+        self.assertIn(ft.clamp(120), out)
+
+    def test_v3(self):
+        cfg = block("module.exports = {")
+        extra = run("46", "--size")[1] + run("315", "--grid")[1]
+        cfg = cfg.replace("      spacing: {\n", "      spacing: {\n" + extra, 1) + "\n}"
+        out = self.compile(3, None, cfg)
+        for cls in self.CLASSES.split():
+            if cls.startswith("max-w-") and ("size" in cls or "grid" in cls):
+                continue  # v3 max-w-* reads maxWidth, not spacing: use w- or register under maxWidth
+            self.assertRegex(out, r"\." + re.escape(cls).replace("\\-", "-") + r"\s*\{", cls)
+        self.assertIn(ft.clamp(120), out)
+
+
 class Cli(unittest.TestCase):
     def test_bad_input_exits_2_without_traceback(self):
         for args in (["abc"], ["32", "--class"], ["32", "--vv"], [], ["--v4"], ["32", "--css", "--v4"],
-                     ["32", "--size", "--font"], ["--default", "--size"]):
+                     ["32", "--size", "--font"], ["--default", "--size"], ["32", "--grid", "--size"],
+                     ["32", "40", "--mobile", "20"], ["32", "--size", "--mobile", "20"], ["32", "--mobile"],
+                     ["32", "40", "--min-ratio", "1.15"], ["32", "--font", "--min-ratio", "1.15"],
+                     ["--default", "--grid"], ["--default", "--font", "body"]):
             p = subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
             self.assertEqual(p.returncode, 2, args)
             self.assertNotIn("Traceback", p.stderr, args)

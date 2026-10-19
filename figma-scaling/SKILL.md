@@ -1,8 +1,8 @@
 ---
 name: figma-scaling
-description: Converts Figma px values into fluid clamp() values for sites designed only on a 1920 desktop frame: 1440 laptop floor, 1920 baseline, 2560 2K ceiling, and phone values derived from the desktop ones so tablet and mobile scale proportionally (360-1440), for plain CSS and Tailwind CSS v3/v4 (fluid-* tokens in tailwind.config or @theme, arbitrary clamp classes, Next.js setup). A bundled script computes every value. Use whenever slicing a Figma design into HTML/CSS or Tailwind, when writing or reviewing clamp()/vw/rem sizing or fluid-* tokens, making a desktop-only design responsive, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked, handling negative clamp() values, font-size floors or mobile heading overflow, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation.
+description: Converts Figma px values into fluid clamp() values for sites designed only on a 1920 desktop frame: 1440 laptop floor, 1920 baseline, 2560 2K ceiling, and phone values derived from the desktop ones (or taken from a Figma mobile frame or Mobile variable mode) so tablet and mobile scale proportionally (360-1440), for plain CSS and Tailwind CSS v3/v4 (fluid-* tokens in tailwind.config or @theme, arbitrary clamp classes, Next.js setup). A bundled script computes every value. Use whenever slicing a Figma design into HTML/CSS or Tailwind, when writing or reviewing clamp()/vw/rem sizing or fluid-* tokens, making a desktop-only design responsive, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked, handling negative clamp() values, font-size floors or mobile heading overflow, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation.
 metadata:
-  version: "5.0"
+  version: "5.1"
   last-updated: "2026-10-19"
 ---
 
@@ -10,7 +10,7 @@ metadata:
 
 Reusable standard for any Figma canvas built on a fixed frame width (Desktop Fluid + Responsive Tiers).
 
-**Version:** 5.0 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
+**Version:** 5.1 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
 
 **By stack:** this file is the standard for every stack (model, values, rules, checklist).
 - **Plain CSS / CSS Modules / SCSS** (also inside Next.js): this file is enough. Tokens as CSS custom properties: `python3 scripts/fluid_tokens.py --default --css`.
@@ -20,7 +20,8 @@ Reusable standard for any Figma canvas built on a fixed frame width (Desktop Flu
 
 ```bash
 python3 scripts/fluid_tokens.py 120 --css       # spacing (with the mobile line) as a custom property
-python3 scripts/fluid_tokens.py 377 --size --css # an element size: column width, icon, image
+python3 scripts/fluid_tokens.py 377 --grid --css # a grid-bound width: column, card, page margin
+python3 scripts/fluid_tokens.py 48 --size --css  # a physical size: icon, avatar, button
 python3 scripts/fluid_tokens.py 22 36 --font    # font sizes, 15px floor applied
 python3 scripts/fluid_tokens.py --default --css # the Section 3 set as :root custom properties
 ```
@@ -47,6 +48,12 @@ MOBILE_MIN_FRAME = 360    // smallest phone width; the line stops here
 CURVE_BASE_PX    = 16     // values up to this size are not reduced further
 SPACE_EXPONENT   = 0.6    // spacing: mobile = 16 * (px / 16) ^ 0.6
 FONT_EXPONENT    = 0.5    // font-size: mobile = 16 * (px / 16) ^ 0.5 (headings compress more)
+GRID_FLOOR_FRAME = 1024   // grid-bound sizes are proportional down to the tablet tier
+
+// --- Font floors per role (never above the Figma value: floor = min(role, figma_px)) ---
+FONT_FLOOR_BODY    = 16   // running text (iOS/Android body guidance 16–17px)
+FONT_FLOOR_UI      = 14   // eyebrow, label (nav and buttons are safer at 15)
+FONT_FLOOR_CAPTION = 12   // legal, meta, badge, footnote; 12px is the hard minimum
 
 // --- Foundations ---
 BASE_REM_PX      = 16     // Standard browser default font-size (100%)
@@ -68,7 +75,7 @@ $$\text{value}(w) = \text{figma\_px} \times \frac{w}{\text{SOURCE\_FRAME}}$$
 property: clamp(MIN_rem, FLUID_vw, MAX_rem);
 ```
 
-**Below 1440px:** a straight line from the derived **mobile value at 390px** to the **1440 value**, so tablet sizes fall proportionally between the two, extended down to 360px. Spacing (padding, margin, gap) and font sizes use it; element sizes (column widths, icons, images, buttons) do not (`--size`, Section 8 Exceptions). Small values keep the 1440 value (spacing up to 32px, font up to 24px), so their `clamp()` is the three-point form above. Larger values get:
+**Below 1440px:** a straight line from the derived **mobile value at 390px** to the **1440 value**, so tablet sizes fall proportionally between the two, extended down to 360px. Spacing (padding, margin, gap) and font sizes use it. Sizes do not: **grid-bound** sizes (columns, cards, page margin, gutters, section heights, positions inside a composed box) are proportional down to 1024 (formula 6, `--grid`), and **physical** sizes (icons, avatars, buttons, tap targets) hold their 1440 value (`--size`). Section 11 step 1 says which is which. Small values keep the 1440 value (spacing up to 32px, font up to 24px), so their `clamp()` is the three-point form above. Larger values get:
 
 ```css
 property: clamp(LOW_rem, max(min(A_rem + B_vw, MIN_rem), FLUID_vw), MAX_rem);
@@ -106,6 +113,8 @@ property: clamp(LOW_rem, max(min(A_rem + B_vw, MIN_rem), FLUID_vw), MAX_rem);
    ```
    Large values shrink most: 120px section padding → 53.5px, a 64px H1 → 32px, a 16px gap stays at its 1440 value (12px).
 
+   **When the design gives a phone value, use it** (`--mobile PX`): a Figma mobile frame, or a variable collection with a "Mobile" mode (common for Typography even without a mobile frame), or a size the client approved. It replaces the derived `mobile_px`; the line and the `clamp()` form stay the same. A phone value above the 1440 value is allowed (an 18px phone body over a 16px laptop body): the line then slopes down to the 1440 value, written `clamp(MIN_rem, max(A_rem - B_vw, FLUID_vw), MAX_rem)`.
+
 5. **Mobile line (390 → 1440), only when `mobile_px < min_px`:**
    ```
    B_px_per_px = (min_px - mobile_px) / (TARGET_FRAME - MOBILE_FRAME)
@@ -116,9 +125,16 @@ property: clamp(LOW_rem, max(min(A_rem + B_vw, MIN_rem), FLUID_vw), MAX_rem);
    ```
    Below 1440 the mobile line is above the desktop line, so `max()` picks it; from 1440 up, `min()` holds it at the 1440 value and `max()` gives exactly the three-point result, so every value from 1440 up is unchanged. Verified in Chromium at 360, 390, 768, 1024, 1440, 1920 and 2560 (within 0.02px of the script); the tests check 1440–3000 against the three-point model.
 
+6. **Grid-bound sizes (`--grid`):** the three-point form with its floor at 1024 instead of 1440:
+   ```
+   grid_min_px = round_to_0.5(figma_px * GRID_FLOOR_FRAME / SOURCE_FRAME)
+   clamp(grid_min_rem, FLUID_vw, MAX_rem)
+   ```
+   Between 1024 and 1440 every column, gutter and composed box shrinks with the screen, so a row designed for 1920 still fits: the desktop composition is kept down to 1024 (Section 6), and at 1024 the 12-column grid is exactly 1024 wide. From 1440 up it equals `--size` (within the 0.25px of the 1440 rounding). Below 1024 it holds the 1024 value; columns stack to 100% there anyway (Section 5).
+
 ### Viewport Behavior:
 - **< 360px:** locks to the 360 value.
-- **360px – 1440px (Phone to laptop):** spacing and font follow the mobile line: the derived phone value at 390, proportional through tablet, the 1440 value at 1440. Small values and element sizes stay at the 1440 value (`MIN_rem`). Layout changes (stacking, nav, lateral padding) still come from Section 6.
+- **360px – 1440px (Phone to laptop):** spacing and font follow the mobile line: the phone value at 390, proportional through tablet, the 1440 value at 1440. Small values and physical sizes stay at the 1440 value (`MIN_rem`). Grid-bound sizes are proportional from 1024 to 1440 and hold below. Layout changes (stacking, nav, lateral padding) still come from Section 6.
 - **1440px – 1920px (Laptop to 1080p):** Interpolates linearly. Exactly matches Figma at 1920px (`vw` includes a classic scrollbar, so on Windows the match is within ~1%).
 - **1920px – 2560px (1080p to 2K):** Interpolates linearly. Expands proportionally to eliminate empty lateral space on 2K displays.
 - **> 2560px (Ultrawide / 4K):** `clamp()` locks to `MAX_rem`. Container centers with `margin-inline: auto` (luxury pillarbox) preventing text distortion and exaggerated vertical scrolling on 21:9 monitors.
@@ -164,12 +180,12 @@ When an outer container widens to 2133px on 2K, but child columns are capped at 
 ### Solution:
 Always calculate child column `flex-basis` or `max-width` using the full 3-point formula:
 ```css
-/* Example: column is 377px in Figma 1920 (an element size: fluid_tokens.py 377 --size) */
-/* 1440 min = 282.75px → rounded to 283px (17.6875rem) */
+/* Example: column is 377px in Figma 1920 (grid-bound: fluid_tokens.py 377 --grid) */
+/* 1024 min = 201.07px → rounded to 201px (12.5625rem); proportional from 1024 up */
 /* mid      = (377 / 19.2)vw = 19.6354vw */
 /* 2560 max = (377 * 1.3333) / 16 = 31.4167rem (502.7px) */
 .c-column {
-  flex: 0 1 clamp(17.6875rem, 19.6354vw, 31.4167rem);
+  flex: 0 1 clamp(12.5625rem, 19.6354vw, 31.4167rem);
 }
 ```
 
@@ -185,7 +201,7 @@ Always calculate child column `flex-basis` or `max-width` using the full 3-point
 1. **0px Height Collapse (Disappearing Cards):**  
    If a child has `flex: 1 1 0` or `flex-basis: 0` in horizontal layout, switching to vertical column turns the main axis to vertical. With no explicit parent height, `flex-basis: 0` calculates item height as **0px**, causing components (e.g. facility/highlight cards) to completely vanish.
 2. **Giant Vertical Ghost Gaps:**  
-   If a child has `flex: 0 1 clamp(17.6875rem, ...)`, switching to vertical column causes the browser to treat that clamp value as the **minimum vertical height reservation**, generating massive unwanted blank gaps between stacked columns (e.g. footer sections).
+   If a child has `flex: 0 1 clamp(12.5625rem, ...)`, switching to vertical column causes the browser to treat that clamp value as the **minimum vertical height reservation**, generating massive unwanted blank gaps between stacked columns (e.g. footer sections).
 
 ### Standard Fix:
 Always reset child sizing when stacking to column in media queries:
@@ -205,7 +221,7 @@ Always reset child sizing when stacking to column in media queries:
 
 ## 6. Responsive Breakpoint Architecture (< 1024px & < 768px)
 
-Spacing and font sizes already shrink below 1440 (Section 2), so these tiers only change **layout**: what stacks, what collapses, and the lateral padding.
+Spacing and font sizes already shrink below 1440, and grid-bound sizes from 1440 to 1024 (Section 2), so these tiers only change **layout**: what stacks, what collapses, and the lateral padding. Above 1024 the desktop composition stays, which is why every column, gutter and composed box in it must be `--grid`: a `--size` row holds its 1440 width and overlaps or overflows between 1024 and 1440.
 
 ### 1. Tablet Tier (`@media (max-width: 1024px)`):
 - **Section Lateral Padding:** Lock to a **fixed** `2rem` (32px), e.g. `padding: 3rem 2rem`, to prevent large fluid desktop padding (e.g. 90px) from crushing content width. Use fixed rem here, never a fluid token: the lateral padding is a fixed gutter on a narrow screen, not a scaled desktop value.
@@ -216,6 +232,9 @@ Spacing and font sizes already shrink below 1440 (Section 2), so these tiers onl
 - **Section Lateral Padding:** Lock to a fixed `1rem` (16px), e.g. `padding: 2rem 1rem`.
 - **Form Rows:** Form fields (`.c-field-row`) must stack vertically with `flex-direction: column` and `width: 100%`.
 - **Embedded Media & Maps:** Provide explicit `aspect-ratio: 4 / 3` (or `16 / 9`) and a safety floor `min-height: 280px` to prevent layout collapse.
+
+### Stacked sections without a Figma padding
+A section that is fixed-height (or `100svh`) with centred content in Figma has no vertical padding to derive from, but needs one once it stacks. Use the design's most common section padding token (usually the section top padding), so the vertical rhythm on phones stays consistent, and switch the fixed height to `min-height`.
 
 ---
 
@@ -241,13 +260,18 @@ bottom: clamp(-0.3333rem, -0.2083vw, -0.1875rem);
 
 ## 8. Font-Size Floor, Display Typography & Exceptions
 
-### Font-Size Floor (`FONT_FLOOR_PX = 15px`)
-Text below 15px strains readability regardless of scale ratios.
-- Spacing and element sizes have no floor.
-- Font sizes must never fall below `FONT_FLOOR_PX`:
+### Font-Size Floor (per role)
+Small text strains readability on phones and laptops, but a floor must not make text bigger than the design.
+- Spacing and sizes have no floor.
+- **Give every font value a role** (`--font body|ui|caption`); its floor is `min(role floor, figma_px)`, so text never rises above Figma at any width:
   ```
-  min_font_rem = max(round_to_0.5(figma_px * SCALE_RATIO_MIN), FONT_FLOOR_PX) / 16 rem
+  floor        = min(FONT_FLOOR_role, figma_px)      // body 16, ui 14, caption 12
+  min_font_rem = max(round_to_0.5(figma_px * SCALE_RATIO_MIN), floor) / 16 rem
   ```
+  A 20px body copy is 16px from 1440 down; a 14px caption is 12px at 1440 and 14px at 1920.
+- `--font` without a role keeps the older single `FONT_FLOOR_PX = 15` (the Section 3 / default tables use it). Note what it does to small text: a 14px caption becomes 15px even at 1920, and text under 11.25px is 15px everywhere. Prefer a role.
+- **Form inputs need 16px or more** on phones, or iOS Safari zooms the page on focus: give inputs, selects and textareas the `body` role or a fixed `1rem`.
+- 12px is the hard minimum for any text; below it, serif faces break up on low-DPR screens.
 - Font sizes follow the mobile line with `FONT_EXPONENT` (Section 2), so headings shrink more than spacing. Values in px at each viewport, from `python3 scripts/fluid_tokens.py --default`:
 
 | Figma (1920) | 390 | 768 | 1440 | 1920 | 2560 | Production `clamp()` |
@@ -269,20 +293,36 @@ Text below 15px strains readability regardless of scale ratios.
 Figma inspect gives line height in px and letter spacing in % or px. Convert both to relative units so they follow the fluid font size:
 - **Line height:** `figma_line_height_px / figma_font_px`, unitless, 2–3 decimals (e.g. 28 / 20 = `1.4`). Never paste the px value: a fixed line height does not scale with the clamp and overlaps lines at 2560.
 - **Letter spacing:** `%` ÷ 100 → `em` (e.g. -2% = `-0.02em`); px ÷ font px → `em`.
+- **Body text on phones:** the Figma ratio fits the desktop size. Body text that lands under about 18px on a phone usually needs a line height of `1.5` or more. A per-tier line-height override below 1024 for body text is an accepted exception, not a model violation.
+
+### Heading Hierarchy on Phones
+`FONT_EXPONENT` compresses ratios: a 88 / 72 h2 / h3 pair (1.22) becomes 37.5 / 34 on a phone (1.10), nearly the same size. Generate a project's heading sizes together with a minimum step: `fluid_tokens.py 210 88 72 --font --min-ratio 1.15` raises each phone value until it is at least 1.15 times the next smaller one (never more than their desktop ratio, never above the 1440 value). When the client approved specific phone sizes, or Figma has a Mobile mode, set each with `--mobile` instead.
 
 ### Display & Heading Check on Mobile
-Font tokens already bring large headings down on phones (a 64px H1 is 32px at 390, Section 2). Still check the longest word of every display heading at 360px. If a single word overflows, add an override for that heading only:
-```css
-@media (max-width: 768px) {
-  .p-hero__quote { font-size: clamp(1.85rem, 7vw, 2.6rem); }
-}
-```
+Font tokens already bring large headings down on phones (a 64px H1 is 32px at 390, Section 2). Two checks at 360px:
+- **Longest word:** every display word fits the content box. If one overflows, override that heading only:
+  ```css
+  @media (max-width: 768px) {
+    .p-hero__quote { font-size: clamp(1.85rem, 7vw, 2.6rem); }
+  }
+  ```
+- **Designed line count:** a heading designed to break into N lines (often held with `max-width: 6.08em` or similar) keeps N lines. An em-based max-width grows with the font and can exceed the content box on a narrow phone, adding a line while no word overflows. Cap the font so the em width always fits:
+  ```css
+  .p-hero__title {
+    max-width: 6.08em;
+    font-size: min(var(--text-fluid-210), calc((100vw - 2rem) / 6.08));  /* 2rem = both lateral paddings */
+  }
+  ```
 
 ### Exceptions (Do NOT Scale):
 - **Border-width:** Keep `1px` for hairlines (`--border-hairline: 1px`).
 - **Box-shadow:** Blur and spread stay constant unless explicitly specified.
 - **Pill/Circle radius:** `9999px` or `50%` are symbolic constants; do not scale.
-- **Element sizes** (column widths, max-widths, icons, avatars, image heights, button heights): scale with the three-point form only (`fluid_tokens.py <px> --size`), not the mobile curve. Below 1024px columns become 100% wide anyway (Section 5). Tap targets (buttons, links, form controls) stay at least `2.75rem` (44px) tall on mobile.
+- **Sizes** never follow the phone curve:
+  - **Grid-bound** (`--grid`): column and card widths, max-widths of content blocks, page margin, gutters, section heights, image boxes in a composition, and every offset and inner padding of a composed box (below). Proportional from 1024 up.
+  - **Physical** (`--size`): icons, avatars, logos, button and input heights. Hold their 1440 value below 1440.
+- **Composed boxes:** a box with a fixed height, or with absolutely positioned children, is one picture: its height, its children's `top`/`left`/width and its inner padding all use `--grid`, so they shrink together between 1024 and 1440. Mixing a `--size`/`--grid` height with a spacing padding inside makes the content drift (the padding shrinks, the height does not). Better still, use `min-height` plus padding instead of a fixed height.
+- **Tap targets:** buttons, links and form controls are at least `2.75rem` (44px) tall on mobile. Give interactive text a `min-height: 2.75rem` (with flex centring) instead of relying on line height × padding: a smaller font token shrinks a padded link below 44px.
 - **Unitless line-height:** Unitless multipliers (e.g. `1.6`, `1.2`) scale automatically with font size (convert from Figma, see above).
 - **Relative letter-spacing:** Values expressed in `em` (e.g. `0.025em`) scale automatically.
 
@@ -319,11 +359,16 @@ Font tokens already bring large headings down on phones (a 64px H1 is 32px at 39
 
 When translating any dimension from Figma inspect mode:
 
-1. **Read `figma_px`** from Figma inspect (e.g., width, padding, gap, font-size), and decide its kind: **spacing** (padding, margin, gap), **font** (font-size), or **size** (width, height, icon, image, button).
+0. **Check the file for phone values first:** a mobile frame, or a variable collection (often Typography) with a "Mobile" mode. Where one exists, its value is the phone value: pass it with `--mobile`.
+1. **Read `figma_px`** from Figma inspect, and decide its kind:
+   - **spacing** (default): padding, margin, gap between blocks;
+   - **font** (`--font body|ui|caption`): font-size, with its role;
+   - **grid** (`--grid`): column/card widths, content max-widths, page margin, gutters, section heights, absolute offsets and inner padding inside a composed box;
+   - **size** (`--size`): icons, avatars, logos, button and input heights.
 2. **Use the project's token if one exists** for that px (its tokens file, e.g. `tokens.css`; name tokens by the Figma px they represent, so a token never means two sizes).
-3. **Otherwise generate it with `scripts/fluid_tokens.py`**: spacing by default, `--font` for font sizes, `--size` for element sizes; `--css` for a custom property. The script applies the Section 2 formulas (4 decimals, as in Section 3). Never write the mobile line by hand.
+3. **Otherwise generate it with `scripts/fluid_tokens.py`** with the kind's flag (`--css` for a custom property). Generate the heading set together with `--min-ratio 1.15` (Section 8). The script applies the Section 2 formulas (4 decimals, as in Section 3). Never write the mobile line by hand.
 4. **If styling columns inside a flex container:**
-   - Ensure column's `flex-basis` or `max-width` uses 2K ceiling `MAX_rem` to prevent pinching.
+   - Ensure column's `flex-basis` or `max-width` is a `--grid` value (2K ceiling `MAX_rem`, proportional from 1024) to prevent pinching on 2K and overlap between 1024 and 1440.
    - For responsive breakpoints (`<= 1024px`), apply **The Responsive Flex Reset Rule** (`flex: 0 0 auto; width: 100%;`).
 
 ---
@@ -332,15 +377,19 @@ When translating any dimension from Figma inspect mode:
 
 Before finalizing any PR or feature:
 
-- [ ] All scaled properties use a generated `clamp()` with the 2K ceiling: spacing and font from the default / `--font` output (mobile line), element sizes from `--size`.
+- [ ] All scaled properties use a generated `clamp()` of the right kind: spacing, font (with a role), grid (columns, gutters, composed boxes) or size (icons, buttons).
+- [ ] Phone values from a Figma mobile frame or Mobile variable mode are used (`--mobile`), not the derived ones.
 - [ ] Root `html { font-size: 100%; }` remains unchanged.
 - [ ] Container `--layout-max` is set to `160rem` (2560px) and centers with `margin-inline: auto`.
 - [ ] No flex child column inside `--layout-content-max` has a max-width hardcoded to 1920px.
 - [ ] Multi-column flex children transitioning to `column` at responsive breakpoints apply `flex: 0 0 auto; width: 100%`.
 - [ ] Negative fluid values use `calc(-1 * clamp(...))`, or a hand-written negative clamp with `MIN <= MAX` (e.g. `clamp(-0.33rem, ..., -0.18rem)`).
 - [ ] Border-width (`1px`) is unscaled; line-heights are unitless and letter-spacing is in `em` (no px from Figma inspect).
-- [ ] Typography checked against `FONT_FLOOR_PX` (15px minimum floor); the longest display word fits at 360px.
-- [ ] Tap targets are at least 44px tall on mobile.
+- [ ] Every font value has a role floor and no text renders above its Figma size at 1920; inputs are at least 16px on phones.
+- [ ] At 360px the longest display word fits and every heading keeps its designed line count; adjacent heading levels stay visibly different.
+- [ ] Tap targets are at least 44px tall on mobile; re-measured after any font token change.
+- [ ] Every composed row checked at **1024** and **1280** for **overlap** (not only scrollbars: `overflow: hidden` hides overlap). A row whose fixed parts add up to more than the screen uses `--grid` or stacks.
+- [ ] No box mixes a fixed height with a spacing padding inside (Section 8, composed boxes).
 - [ ] Tablet/mobile lateral padding is a fixed rem, not a fluid token.
 - [ ] Verified at **360px**, **390px** (Mobile), **768px** (Tablet portrait), **1024px** (Tablet landscape), **1440px** (Compact laptop), **1920px** (Desktop baseline), and **2560px** (2K ceiling) viewports without horizontal scrollbar or element collapse.
 
@@ -351,5 +400,6 @@ Before finalizing any PR or feature:
 | File | Read or run when |
 |---|---|
 | `references/tailwind.md` | The project uses Tailwind CSS (v3 or v4), with or without Next.js. |
-| `scripts/fluid_tokens.py` | Any value is needed: `--css` (custom properties), default (Tailwind v3 entries), `--v4` (`@theme` lines), `--class PREFIX` (arbitrary class); `--font` applies the floor; `--default` prints the Section 3 set. |
+| `scripts/fluid_tokens.py` | Any value is needed. Kind: spacing (default), `--font [body|ui|caption]`, `--grid`, `--size`. Options: `--mobile PX`, `--min-ratio R`. Output: `--css`, default (Tailwind v3 entries), `--v4` (`@theme` lines), `--class PREFIX`; `--default` prints the Section 3 and 8 sets. |
 | `scripts/test/test_fluid_tokens.py` | After editing the script or any table here or in `references/tailwind.md`: keeps them in sync. Python 3.9+, standard library only. |
+| `notes/run-<n>.md` | Field notes from real projects; each CHANGELOG entry says which notes it applied. Not needed to use the skill. |

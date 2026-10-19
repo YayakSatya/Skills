@@ -17,13 +17,15 @@ So register the token table once as **named Tailwind theme tokens** and write `p
 
 ### The model in one paragraph
 
-Same values as SKILL.md Section 2: from 1440 up, `clamp(MIN_rem, FLUID_vw, MAX_rem)` on the 1920 → 2560 line (exact Figma value at 1920). Below 1440, spacing and font tokens follow a line from a derived **phone value at 390px** to the 1440 value, so tablet falls proportionally between them; larger values shrink more on phones (120px padding → 53.5px, a 64px H1 → 32px). Element sizes (column widths, icons, images) use the three-point form only (`--size`). Full derivation and tables: SKILL.md Sections 2, 3 and 8.
+Same values as SKILL.md Section 2: from 1440 up, `clamp(MIN_rem, FLUID_vw, MAX_rem)` on the 1920 → 2560 line (exact Figma value at 1920). Below 1440, spacing and font tokens follow a line from a derived **phone value at 390px** to the 1440 value, so tablet falls proportionally between them; larger values shrink more on phones (120px padding → 53.5px, a 64px H1 → 32px). Sizes never follow the phone curve: grid-bound sizes (columns, gutters, composed boxes) are proportional from 1024 up (`--grid`), physical sizes (icons, buttons) hold their 1440 value (`--size`). A phone value from the design (a Figma Mobile mode) replaces the derived one with `--mobile`. Full derivation and tables: SKILL.md Sections 2, 3 and 8.
 
 **Never compute these by hand.** Use the bundled script:
 
 ```bash
-python3 scripts/fluid_tokens.py 377 --size --class 'flex-[0_1_'  # column width -> flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
-python3 scripts/fluid_tokens.py 22 36 --font                # -> v3 fontSize entries with the 15px floor
+python3 scripts/fluid_tokens.py 377 --grid --class 'flex-[0_1_'  # column width -> flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]
+python3 scripts/fluid_tokens.py 22 --font body              # -> v3 fontSize entry, body floor (16px, never above Figma)
+python3 scripts/fluid_tokens.py 88 --font --mobile 46 --v4  # -> h2 with the phone size from a Figma Mobile mode
+python3 scripts/fluid_tokens.py 210 88 72 --font --min-ratio 1.15 --v4  # -> heading set with visible steps on phones
 python3 scripts/fluid_tokens.py 56 --v4                     # -> --spacing-fluid-56: clamp(...); (spacing, with the phone line)
 python3 scripts/fluid_tokens.py --default --v4              # -> the full Section 1 set as @theme lines
 ```
@@ -135,7 +137,16 @@ v4 reads tokens from theme-variable **namespaces**, and the namespace decides wh
 
 `px-fluid-32` resolves to `padding-inline: clamp(1.5rem, 1.6667vw, 2.6667rem)` in v4 (`padding-left` + `padding-right` in v3). Spacing, sizing, gap, inset and position utilities all draw from the spacing scale.
 
-**Widths and heights are sizes, not spacing.** `w-fluid-*` / `h-fluid-*` would follow the phone curve (a 64px icon at 37px on a phone). For element sizes (icons, avatars, image heights, fixed card widths) generate an arbitrary value with `--size`, e.g. `size-[clamp(3rem,3.3333vw,5.3333rem)]`, or register them under their own keys from `--size` output. Column widths become `w-full` below `lg` anyway (Section 4).
+**Widths, heights and positions are sizes, not spacing.** `w-fluid-*` / `h-fluid-*` / `top-fluid-*` would follow the phone curve (a 64px icon at 37px on a phone). Register sizes from the script by kind (SKILL.md Section 11, step 1):
+
+```bash
+python3 scripts/fluid_tokens.py 315 377 --grid --v4   # --spacing-grid-315 ...  -> w-grid-315, h-, top-, max-w-grid-315
+python3 scripts/fluid_tokens.py 24 48 --size --v4     # --spacing-size-24 ...   -> size-size-24, w-size-48, h-size-48
+```
+
+Both print into `--spacing-*` on purpose: in v4 that namespace feeds `w-`, `h-`, `size-`, `inset-`/`top-`, `max-w-`, `p-`, `m-` and `gap-`. A `--size-*` variable would only feed `size-*` (verified with Tailwind 4.1.11). In v3 put the default output under `theme.extend.spacing` (`w-`, `h-`, `top-`, `size-`), and repeat a key under `maxWidth` if you need `max-w-grid-N`.
+
+Use `--grid` for columns, cards, gutters, section heights and everything inside a composed box (absolute `top`/`left`, inner padding), so the whole box shrinks with the screen between 1024 and 1440. Use `--size` for icons, avatars, logos and button heights.
 
 ### Line height: always pair `text-fluid-*` with a leading
 
@@ -155,6 +166,8 @@ Tailwind's own `text-xl` etc. set a line-height; the `text-fluid-*` tokens above
 
 Take the value from Figma (line height ÷ font size, unitless) so it follows the fluid size. Never a px or rem line-height: it would not scale with the clamp.
 
+**Body text on phones** that lands under about 18px usually needs `1.5` or more; override it for the narrow tier only, e.g. `text-fluid-24 leading-[1.4167] max-lg:leading-normal`. This is an accepted exception, not a model violation.
+
 ---
 
 ## 2. Arbitrary values for one-off sizes
@@ -162,8 +175,8 @@ Take the value from Figma (line height ÷ font size, unitless) so it follows the
 Values without a token (13px, 377px) get an arbitrary class. Generate it with the script; it already formats the class correctly:
 
 ```bash
-python3 scripts/fluid_tokens.py 377 --size --class 'flex-[0_1_'   # a column width: --size
-# flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
+python3 scripts/fluid_tokens.py 377 --grid --class 'flex-[0_1_'   # a column width: --grid
+# flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]
 python3 scripts/fluid_tokens.py 96 --class 'py-['                 # a one-off spacing value
 # py-[clamp(2.8929rem,max(min(2.3571rem_+_2.381vw,4.5rem),5vw),8rem)]
 ```
@@ -171,8 +184,8 @@ python3 scripts/fluid_tokens.py 96 --class 'py-['                 # a one-off sp
 **Underscore rule.** Inside the brackets, top-level spaces must be underscores, or the class is never generated:
 
 ```
-✅ flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]
-❌ flex-[0 1 clamp(17.6875rem, 19.6354vw, 31.4167rem)]
+✅ flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]
+❌ flex-[0 1 clamp(12.5625rem, 19.6354vw, 31.4167rem)]
 ```
 
 Commas inside `clamp(...)` are fine. The spaces separating values (here grow / shrink / basis) and the spaces around `+` / `-` in the phone line need `_`; the script writes both. This is the most common breakage when an agent pastes a clamp string into a class.
@@ -188,7 +201,7 @@ Same rule as SKILL.md Section 4: when the container grows to 2560px, inner flex 
 ```html
 <!-- Figma: a 377px column on the 1920 canvas -->
 <div class="mx-auto flex max-w-layout justify-between">
-  <div class="flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]">...</div>
+  <div class="flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]">...</div>
 </div>
 ```
 
@@ -204,7 +217,7 @@ SKILL.md Section 5: when a row stacks into a column, the fluid flex-basis must b
 
 ```html
 <div class="flex flex-row max-lg:flex-col">
-  <div class="flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)] max-lg:flex-none max-lg:w-full">...</div>
+  <div class="flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)] max-lg:flex-none max-lg:w-full">...</div>
 </div>
 ```
 
@@ -212,7 +225,7 @@ SKILL.md Section 5: when a row stacks into a column, the fluid flex-basis must b
 
 ```html
 <div class="flex flex-col lg:flex-row">
-  <div class="w-full lg:w-auto lg:flex-[0_1_clamp(17.6875rem,19.6354vw,31.4167rem)]">...</div>
+  <div class="w-full lg:w-auto lg:flex-[0_1_clamp(12.5625rem,19.6354vw,31.4167rem)]">...</div>
 </div>
 ```
 
@@ -278,6 +291,12 @@ So negate with the prefix and keep the clamp positive. This is the Tailwind form
 
 On Tailwind older than v3.2 (no `max-*` variants), add a custom screen `{ 'mobile': { max: '768px' } }` and use `mobile:`.
 
+**Designed line count.** A heading held to N lines with an em max-width can gain a line on a narrow phone, because the em width grows past the content box. Cap the font so the em width always fits (2rem = both lateral paddings):
+
+```html
+<h1 class="max-w-[6.08em] text-[min(var(--text-fluid-210),calc((100vw_-_2rem)/6.08))]">...</h1>
+```
+
 ---
 
 ## 8. Exceptions (do not scale)
@@ -289,7 +308,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 - **Pill / circle radius**: `rounded-full` is 9999px.
 - **Line height**: `leading-*` is unitless and follows the fluid font size.
 - **Letter spacing**: `tracking-*` is em-based and follows the fluid font size.
-- **Tap targets**: buttons, links and form controls stay at least `min-h-11` (44px) on mobile.
+- **Tap targets**: give interactive text `min-h-11 inline-flex items-center` (44px) by default, instead of relying on line height × padding: a smaller font token shrinks a padded link below 44px. Inputs use the `body` font role (16px or more) or iOS Safari zooms on focus.
 
 ---
 
@@ -309,7 +328,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 
 1. Read `figma_px` from Figma inspect (on the 1920 canvas).
 2. Token exists for that px (Section 1)? Use it: `p-fluid-32`, `text-fluid-24`.
-3. No token, one-off: generate with `scripts/fluid_tokens.py` (spacing by default, `--font` for font sizes, `--size` for widths, heights, icons and images) and use it as an arbitrary value; `--class` writes the underscores.
+3. No token, one-off: generate with `scripts/fluid_tokens.py` with the kind's flag (spacing by default, `--font ROLE`, `--grid` for columns, gutters and composed boxes, `--size` for icons and buttons; `--mobile` when the design has a phone value) and use it as an arbitrary value; `--class` writes the underscores.
 4. Same one-off value 3+ times: promote it to a named token.
 5. Flex child columns: clamp with the 2560 MAX, never a fixed 1920-derived cap (Section 3).
 6. Row stacks into a column: pair the fluid basis with its reset in the same className, in the right direction (Section 4).
@@ -332,7 +351,8 @@ Everything in SKILL.md Section 12, plus:
 - [ ] Every `text-fluid-*` has a unitless line-height (a `leading-*`, the `/leading` shorthand, or one baked into the token).
 - [ ] Tailwind scans every file containing `fluid-*` or arbitrary clamp classes (v3 `content` globs; v4 automatic detection or `@source` for paths outside the project).
 - [ ] No custom `1440:` / `2560:` breakpoints.
-- [ ] Widths and heights of elements come from `--size`, not `w-fluid-*` / `h-fluid-*` spacing tokens.
+- [ ] Widths, heights and positions come from `--grid` / `--size` tokens (`w-grid-*`, `size-size-*`), never `w-fluid-*` / `h-fluid-*` / `top-fluid-*`.
+- [ ] Interactive text has `min-h-11`; tap targets re-measured after font token changes.
 - [ ] Layout checked at 360, 390, 768, 1024, 1440, 1920 and 2560.
 
 ---
