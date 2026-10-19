@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Regression tests for fluid_tokens.py. Standard library only:
-    python3 figma-scaling-tailwind/scripts/test/test_fluid_tokens.py
-Checks that the script and the token tables in SKILL.md (and figma-scaling's Section 3) agree,
-so an edit to one cannot drift from the other.
+    python3 figma-scaling/scripts/test/test_fluid_tokens.py
+Checks that the script, the SKILL.md tables and the Tailwind tables in references/tailwind.md
+agree, so an edit to one cannot drift from the others.
 """
 
 import re
@@ -13,8 +13,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE.parent / "fluid_tokens.py"
-SKILL = (HERE.parent.parent / "SKILL.md").read_text()
-SOURCE_SKILL = HERE.parent.parent.parent / "figma-scaling" / "SKILL.md"
+ROOT = HERE.parent.parent
+SKILL = (ROOT / "references" / "tailwind.md").read_text()
+SOURCE_SKILL = ROOT / "SKILL.md"
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPT.parent))
@@ -58,6 +59,25 @@ class Tables(unittest.TestCase):
         for px, value in rows:
             self.assertEqual(value, ft.clamp(float(px)), f"{px}px")
 
+    def test_font_table_matches_skill_section_8(self):
+        rows = re.findall(r"\| (\d+)px \| `(clamp\([^`]+\))` \|", SOURCE_SKILL.read_text())
+        self.assertEqual([px for px, _ in rows], ["12", "16", "18"])
+        for px, value in rows:
+            self.assertEqual(value, ft.clamp(float(px), font=True), f"{px}px")
+
+    def test_css_output_is_a_root_block_with_v4_names(self):
+        code, css = run("--default", "--css")
+        _, v4 = run("--default", "--v4")
+        self.assertEqual(code, 0)
+        lines = css.strip().splitlines()
+        self.assertEqual((lines[0], lines[-1]), (":root {", "}"))
+        self.assertEqual(lines[1:-1], v4.rstrip("\n").splitlines())
+
+    def test_documented_examples(self):
+        for text in (SOURCE_SKILL.read_text(), SKILL):
+            self.assertNotIn("17.6718rem", text)
+        self.assertIn("clamp(17.6875rem, 19.6354vw, 31.4167rem)", SOURCE_SKILL.read_text())
+
     def test_documented_class_example(self):
         code, out = run("377", "--class", "flex-[0_1_")
         self.assertEqual(code, 0)
@@ -89,7 +109,7 @@ class Model(unittest.TestCase):
 
 class Cli(unittest.TestCase):
     def test_bad_input_exits_2_without_traceback(self):
-        for args in (["abc"], ["32", "--class"], ["32", "--vv"], [], ["--v4"]):
+        for args in (["abc"], ["32", "--class"], ["32", "--vv"], [], ["--v4"], ["32", "--css", "--v4"]):
             p = subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
             self.assertEqual(p.returncode, 2, args)
             self.assertNotIn("Traceback", p.stderr, args)

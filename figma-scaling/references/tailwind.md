@@ -1,24 +1,14 @@
----
-name: figma-scaling-tailwind
-description: Next.js + Tailwind CSS version of the figma-scaling standard. Registers the 3-point fluid clamp() model (1440px floor, 1920px Figma baseline, 2560px ceiling) as named Tailwind tokens (p-fluid-32, text-fluid-24, max-w-layout) for Tailwind v3 config or v4 @theme, and gives the Tailwind-specific rules for arbitrary clamp() classes, flex column sizing and resets, max-md/max-lg mobile overrides, negative values, and Next.js App Router setup. Use whenever implementing a Figma design in a Next.js + Tailwind project where the Figma canvas width differs from the viewport, when writing or reviewing fluid-* tokens, tailwind.config fluid scales, @theme clamp tokens, arbitrary clamp() classNames, or fixing pinched flex columns, collapsed or ghost-gap stacked columns, or mobile heading overflow in Tailwind. For plain CSS or another framework, use figma-scaling instead.
-metadata:
-  version: "1.3"
-  last-updated: "2026-10-19"
----
+# Tailwind CSS (and Next.js)
 
-# Figma Scaling for Next.js + Tailwind
+Read this when the project uses **Tailwind CSS** (v3 JIT or v4). Same model and the same values as `SKILL.md`, expressed as Tailwind tokens and utilities, plus Next.js setup. Sections here are numbered on their own; "SKILL.md Section N" points to the main file, which still applies in full.
 
-Tailwind adaptation of the `figma-scaling` skill (SCALING.md v3.3): same formulas, same breakpoints, expressed as Tailwind tokens and utilities, plus Next.js setup.
-
-**Version:** 1.3 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
-
-**Scope:** projects confirmed to run **Next.js + Tailwind CSS** (v3 JIT or v4). Tailwind without Next.js: Sections 1-11 still apply, skip Section 12. Next.js without Tailwind, or plain CSS: use `figma-scaling` instead.
+**Scope:** Tailwind without Next.js: Sections 1-11 apply, skip Section 12. No Tailwind (plain CSS, CSS Modules, SCSS, also inside Next.js): `SKILL.md` alone.
 
 ---
 
 ## 0. Why this exists
 
-The `figma-scaling` clamp() values are valid CSS anywhere, but pasting raw clamp strings into arbitrary classes (`p-[clamp(1.875rem,2.0833vw,3.3333rem)]`) across many components causes two problems:
+The `SKILL.md` clamp() values are valid CSS anywhere, but pasting raw clamp strings into arbitrary classes (`p-[clamp(1.875rem,2.0833vw,3.3333rem)]`) across many components causes two problems:
 
 1. **Repetition and typos**: the same value retyped in every component.
 2. **No single source of truth**: changing `SOURCE_FRAME` or `MAX_FRAME` means find-and-replace across the codebase.
@@ -32,7 +22,7 @@ Every scalable value is `clamp(MIN_rem, FLUID_vw, MAX_rem)` with `SOURCE_FRAME =
 - `MIN_rem = round_to_0.5px(figma_px × 0.75) / 16`; for **font-size only**, `MIN` is at least `FONT_FLOOR_PX = 15px` (0.9375rem)
 - `MAX_rem = figma_px / 12` (= figma_px × 1.3333 / 16)
 
-Below 1440 the value locks to MIN, 1440-2560 interpolates (exact Figma value at 1920), above 2560 it locks to MAX. Full derivation: the `figma-scaling` skill, Sections 2-3.
+Below 1440 the value locks to MIN, 1440-2560 interpolates (exact Figma value at 1920), above 2560 it locks to MAX. Full derivation: SKILL.md Sections 2-3.
 
 **Never compute these by hand.** Use the bundled script:
 
@@ -47,7 +37,7 @@ python3 scripts/fluid_tokens.py --default --v4              # -> the full Sectio
 
 ## 1. Token setup
 
-Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys but apply the 15px floor, so they differ from spacing below 24px. Below 11.25px the floor is above the 2560 value, so the script locks the size at 15px (`clamp(0.9375rem, …, 0.9375rem)`); CSS would resolve a hand-written MIN > MAX the same way, but the locked form says what it does.
+Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys but apply the 15px floor, so they differ from spacing below 20px. Below 11.25px the floor is above the 2560 value, so the script locks the size at 15px (`clamp(0.9375rem, …, 0.9375rem)`); CSS would resolve a hand-written MIN > MAX the same way, but the locked form says what it does.
 
 ### Tailwind v3 (`tailwind.config.ts` / `.js`)
 
@@ -194,7 +184,7 @@ Commas inside `clamp(...)` are fine. Only the spaces separating values (here gro
 
 ## 3. Flex child sizing
 
-Same rule as `figma-scaling` Section 4: when the container grows to 2560px, inner flex children must grow with it. Never cap a child at a 1920px-derived fixed value while the parent scales past it; use the clamp whose MAX is the 2560 value.
+Same rule as SKILL.md Section 4: when the container grows to 2560px, inner flex children must grow with it. Never cap a child at a 1920px-derived fixed value while the parent scales past it; use the clamp whose MAX is the 2560 value.
 
 ```html
 <!-- Figma: a 377px column on the 1920 canvas -->
@@ -207,11 +197,11 @@ Same rule as `figma-scaling` Section 4: when the container grows to 2560px, inne
 
 ## 4. Responsive flex reset
 
-`figma-scaling` Section 5: when a row stacks into a column, the fluid flex-basis must be reset, or the child collapses to 0px (`flex-basis: 0`) or leaves a giant ghost gap (`flex-basis: clamp(...)` acting as a height).
+SKILL.md Section 5: when a row stacks into a column, the fluid flex-basis must be reset, or the child collapses to 0px (`flex-basis: 0`) or leaves a giant ghost gap (`flex-basis: clamp(...)` acting as a height).
 
-**Direction matters.** Tailwind's `md:` / `lg:` are **min-width** ("this width and up"). SCALING.md's tiers are **max-width** ("this width and below"). Two correct ways to write it; pick one per project and keep it consistent.
+**Direction matters.** Tailwind's `md:` / `lg:` are **min-width** ("this width and up"). SKILL.md's tiers are **max-width** ("this width and below"). Two correct ways to write it; pick one per project and keep it consistent.
 
-**A. Desktop-first, mirrors SCALING.md (recommended when porting existing SCALING.md CSS):**
+**A. Desktop-first, mirrors SKILL.md (recommended when porting existing plain-CSS media queries):**
 
 ```html
 <div class="flex flex-row max-lg:flex-col">
@@ -235,7 +225,7 @@ Keep the fluid sizing utility and its reset in the **same className string**, ne
 
 ## 5. Breakpoint mapping
 
-| SCALING.md tier | Meaning | Tailwind desktop-first | Tailwind mobile-first |
+| SKILL.md tier | Meaning | Tailwind desktop-first | Tailwind mobile-first |
 |---|---|---|---|
 | Mobile `max-width: 768px` | 768 and below | `max-md:` (below 768) | default (no prefix) |
 | Tablet `max-width: 1024px` | 1024 and below | `max-lg:` (below 1024) | `md:` (768 and up) |
@@ -243,11 +233,11 @@ Keep the fluid sizing utility and its reset in the **same className string**, ne
 | `TARGET_FRAME` 1440 | clamp floor | none | none |
 | `MAX_FRAME` 2560 | clamp ceiling | none | none |
 
-Tailwind's thresholds sit 1px off SCALING.md's (`max-lg:` is `< 1024px`, SCALING.md includes 1024). Accept that; do not add custom breakpoints to chase the pixel.
+Tailwind's thresholds sit 1px off SKILL.md's (`max-lg:` is `< 1024px`, SKILL.md includes 1024). Accept that; do not add custom breakpoints to chase the pixel.
 
 1440 and 2560 are the **ends of the clamp interpolation**, not places where layout changes. Do not add custom `1440:` / `2560:` breakpoints: they invite snapping values at those widths with separate classes, which reintroduces the pinching bug the continuous clamp prevents. Use `md` / `lg` only for structural changes: nav collapse, column-to-stack, the flex reset, lateral padding tiers.
 
-### Lateral padding tiers (SCALING.md Section 6)
+### Lateral padding tiers (SKILL.md Section 6)
 
 Fluid desktop padding (e.g. 80px) would crush content on small screens, so lock it per tier:
 
@@ -273,13 +263,13 @@ The negative prefix works with fluid tokens and arbitrary clamp values. For anyt
 -bottom-[clamp(0.1875rem,0.2083vw,0.3333rem)]  → same
 ```
 
-So negate with the prefix and keep the clamp positive. `figma-scaling` Section 7's "MIN must be ≤ MAX, so the most negative value is MIN" rule applies only when you write a **literal negative clamp() by hand** in plain CSS.
+So negate with the prefix and keep the clamp positive. This is the Tailwind form of SKILL.md Section 7's preferred `calc(-1 * clamp(...))`. The swapped-ends rule there applies only to a **negative clamp() written by hand**.
 
 ---
 
 ## 7. Mobile heading overrides
 
-`figma-scaling` Section 8: large display headings need a mobile clamp, or single words overflow at 360-375px. Because the original is a max-width rule, use the `max-md:` variant (Tailwind v3.2+ and v4):
+SKILL.md Section 8: large display headings need a mobile clamp, or single words overflow at 360-375px. Because the original is a max-width rule, use the `max-md:` variant (Tailwind v3.2+ and v4):
 
 ```html
 <h1 class="text-fluid-48 max-md:text-[clamp(1.85rem,7vw,2.6rem)]">...</h1>
@@ -311,7 +301,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 </div>
 ```
 
-`max-w-layout` (2560px cap, centered beyond) and `max-w-layout-content` (1200 → 1600 → 2133px) are the Section 1 tokens, equal to `--layout-max` and `--layout-content-max` in `figma-scaling` Section 10.
+`max-w-layout` (2560px cap, centered beyond) and `max-w-layout-content` (1200 → 1600 → 2133px) are the Section 1 tokens, equal to `--layout-max` and `--layout-content-max` in SKILL.md Section 10.
 
 ---
 
@@ -331,7 +321,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 
 ## 11. Verification checklist
 
-Everything in `figma-scaling` Section 12, plus:
+Everything in SKILL.md Section 12, plus:
 
 - [ ] No arbitrary class has a literal space inside the brackets.
 - [ ] v4 tokens use the right namespaces: `--spacing-*`, `--text-*` (never `--font-size-*`), `--container-*` (Section 1).
@@ -369,15 +359,9 @@ Everything in `figma-scaling` Section 12, plus:
    ```
    Class names built by string concatenation (`'p-fluid-' + size`) are never detected in either version; write full class names.
 
-3. **Do not disable zoom.** Root `font-size: 100%` (SCALING.md Section 9) only helps if users can zoom. In `app/layout.tsx`, never export `viewport` with `userScalable: false` or `maximumScale: 1`.
+3. **Do not disable zoom.** Root `font-size: 100%` (SKILL.md Section 9) only helps if users can zoom. In `app/layout.tsx`, never export `viewport` with `userScalable: false` or `maximumScale: 1`.
 
 4. **`next/font` does not set the rem base.** It sets `font-family` (and optionally a CSS variable) only. Keep `html { font-size: 100%; }` explicit in `app/globals.css` (or leave it unset); never 62.5% or 75%, which would compound the scale.
 
 5. **Server vs Client Components do not matter here.** Everything resolves in CSS at paint time; no `'use client'` is needed for scaling.
 
----
-
-## Bundled files
-
-- `scripts/fluid_tokens.py`: computes clamp values with the figma-scaling formulas and prints v3 config entries, v4 `@theme` lines (`--v4`), or a ready arbitrary class (`--class PREFIX`); `--font` applies the 15px floor; `--default` prints the Section 1 set. Bad input exits 2 with a message.
-- `scripts/test/test_fluid_tokens.py`: standard-library tests that keep the script, the Section 1 tables and the `figma-scaling` Section 3 table in sync, and check the font floor. Run `python3 scripts/test/test_fluid_tokens.py` after any change to either.

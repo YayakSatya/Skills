@@ -1,5 +1,11 @@
 # Changelog — figma-scaling
 
+- **4.0** (2026-10-19) — **Tailwind merged in.** `figma-scaling-tailwind` (1.3) is now part of this skill, so one install covers every stack and the model is written once:
+  - `references/tailwind.md`: the former Tailwind skill (tokens for v3 config and v4 `@theme`, line height, arbitrary classes, flex resets, `max-md:`/`max-lg:`, negative values, Next.js). Its "figma-scaling Section N" links now point to SKILL.md sections, whose numbers are unchanged.
+  - `scripts/fluid_tokens.py` moved here; new `--css` prints a `:root` block of custom properties (`--spacing-fluid-N`, `--text-fluid-N`, the same names as v4 `@theme`), so plain-CSS projects also generate values instead of computing them.
+  - SKILL.md: "By stack" routing at the top, workflow step 3 uses the script, Files table. Description covers both stacks.
+  - Tests moved to `scripts/test/` and extended: Section 8 font table, `--css` output, documented 377px example; 11 tests.
+  - No token values changed.
 - **3.5** (2026-10-19) — Review before merging the Tailwind version. No token value changes:
   - **Section 6 padding bug**: tablet/mobile padding said `var(--space-8)` (32px). If that is a fluid token it sits at its 0.75× floor below 1440 (24px, not 32px). Now a fixed `2rem` / `1rem`, plus a checklist item.
   - **Section 7 negative values**: CSS does not reject `clamp()` with MIN > MAX; MIN wins and the value freezes (verified in Chromium: -3px at 1440, 1920 and 2560). Wording fixed, and `calc(-1 * clamp(...))` added as the preferred form (verified: -3 → -4 → -5.33px).
@@ -27,3 +33,24 @@
 - **3.0** (2026-08-28) — Added font-size floor (`FONT_FLOOR_PX = 15px`).
 - **2.0** (2026-08-11) — Added token mapping table, rounding rules, unitless line-height handling, and ultrawide cap.
 - **1.0** — Initial version (1920 → 1440, ratio 0.75).
+
+## Tailwind reference history (was the `figma-scaling-tailwind` skill)
+
+- **1.3** (2026-10-19) — Review fixes:
+  - **Line height**: `text-fluid-*` tokens set font-size only, unlike Tailwind's built-in `text-*`. New Section 1 subsection: pair every fluid text with a unitless leading (`leading-*`, the `text-fluid-32/tight` shorthand, or baked in with a v3 tuple / v4 `--text-*--line-height`). Workflow step 9 and a checklist item added. Both forms verified by compiling with Tailwind 3.4.17 and 4.1.11.
+  - **Font floor for tiny text**: 1.2 capped MIN at MAX, so Figma text under 11.25px came out below 15px (10px → a constant 13.33px). The script now locks those sizes at 15px. Token tables unchanged (all default sizes are 12px and up).
+  - **Tests**: `scripts/test/test_fluid_tokens.py` checks the script against the v3 and v4 tables in Section 1, the `figma-scaling` Section 3 table (15/15), the `--class` example, the font floor and spacing MIN ≤ MAX over 0.5–200px, and CLI errors. Runs in CI.
+  - **Script CLI**: a non-numeric value, a non-positive value, an unknown option or `--class` without a prefix now exits 2 with a message instead of a traceback.
+  - `px-fluid-*` output named per version (`padding-inline` in v4, `padding-left/right` in v3).
+- **1.2** (2026-10-18) — Packaged as a skill, with corrections:
+  - **Tailwind v4 namespaces**: font sizes must use `--text-*`; `--font-size-*` generates no `text-*` utility. Max widths use the documented `--container-*` namespace (`--max-width-*` also works in 4.1). Full v4 `@theme` block added.
+  - **Flex reset direction**: the 1.1 example `flex flex-row lg:flex-col` + `lg:flex-none lg:w-full` stacked on desktop and kept the row on mobile. Replaced with a desktop-first `max-lg:` pattern and a mobile-first `lg:` pattern.
+  - **Breakpoint table**: now shows that Tailwind prefixes are min-width while SCALING.md tiers are max-width, and the 1px boundary offset.
+  - **Checklist contradiction removed**: 1.1 Section 6 said the negative prefix works with clamp(), but the checklist forbade it. The checklist now matches Section 6.
+  - `max-*` variants exist since Tailwind v3.2 (1.1 said v3.4).
+  - 377px example minimum follows the formula's 0.5px rounding: `17.6875rem` (1.1 had the unrounded `17.6718rem`).
+  - Verified by compiling with Tailwind 3.4.17 and 4.1.11: negative prefix on clamp tokens and arbitrary values, `max-md:`/`max-lg:`, underscore rule (a spaced arbitrary class is not generated), v4 namespaces.
+  - Added `scripts/fluid_tokens.py` so agents generate clamp values instead of computing them by hand; output verified against the figma-scaling Section 3 table (15/15 match).
+  - Added lateral padding tiers in Tailwind, v4 `@source` / class-detection notes, and a 360px check.
+- **1.1** (2026-09-13) — Added Next.js notes: TS config location, App Router content globs, viewport zoom, `next/font` vs root font-size.
+- **1.0** (2026-09-13) — Initial Tailwind adaptation of SCALING.md v3.3.

@@ -6,8 +6,7 @@ Claude skills by Yayak Satya. Each folder at the root is one skill with its own 
 | --- | --- |
 | [`figma-taste/`](figma-taste/) | Anti-slop design built directly on the Figma canvas: a site-wide design system, flex layout on a 1920 / 12-column guide, dealt compositions, Unsplash imagery, and an in-canvas audit and token check. See its [CHANGELOG](figma-taste/CHANGELOG.md). |
 | [`figma-design-system-scan/`](figma-design-system-scan/) | Scans a Figma frame or page for reusable components and design tokens before any layout or code is generated. |
-| [`figma-scaling/`](figma-scaling/) | Converts Figma px values into fluid CSS `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling) plus tablet/mobile rules. See its [CHANGELOG](figma-scaling/CHANGELOG.md). |
-| [`figma-scaling-tailwind/`](figma-scaling-tailwind/) | The figma-scaling model for Next.js + Tailwind (v3 config or v4 `@theme`): named `fluid-*` tokens, arbitrary clamp classes, flex resets, `max-md:`/`max-lg:` overrides. Includes `scripts/fluid_tokens.py`. See its [CHANGELOG](figma-scaling-tailwind/CHANGELOG.md). |
+| [`figma-scaling/`](figma-scaling/) | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling) plus tablet/mobile rules, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). Includes `scripts/fluid_tokens.py`. See its [CHANGELOG](figma-scaling/CHANGELOG.md). |
 
 ## Install
 
@@ -23,11 +22,11 @@ node figma-taste/scripts/build-min.mjs
 for t in figma-taste/scripts/test/*.test.mjs; do node "$t"; done
 ```
 
-`figma-scaling-tailwind`'s token script has standard-library tests (Python 3.9+) that keep it in
-sync with the token tables:
+`figma-scaling`'s token script has standard-library tests (Python 3.9+) that keep it in sync with
+the tables in `SKILL.md` and `references/tailwind.md`:
 
 ```bash
-python3 figma-scaling-tailwind/scripts/test/test_fluid_tokens.py
+python3 figma-scaling/scripts/test/test_fluid_tokens.py
 ```
 
 CI runs these commands on every push and pull request that touches the skill. Releases are tagged `figma-taste-v<N>`.

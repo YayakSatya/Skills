@@ -1,8 +1,8 @@
 ---
 name: figma-scaling
-description: Converts Figma inspect px values into fluid CSS clamp() values using a 3-point scaling model (1440px laptop floor, 1920px Figma baseline, 2560px 2K ceiling) plus tablet/mobile breakpoint rules. Use whenever implementing a Figma design whose canvas width differs from the target viewport (e.g. a 1920px design rendered at 1440px or 2560px), when writing or reviewing clamp()/vw/rem sizing, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked at breakpoints, handling negative clamp() values or font-size floors, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation. For a Next.js + Tailwind project, use figma-scaling-tailwind instead.
+description: Converts Figma px values into fluid clamp() values with a 3-point model (1440px laptop floor, 1920px Figma baseline, 2560px 2K ceiling) plus tablet/mobile rules, for plain CSS and for Tailwind CSS v3/v4 (named fluid-* tokens in tailwind.config or @theme, arbitrary clamp classes, max-md/max-lg overrides, Next.js setup). A bundled script computes the values. Use whenever implementing a Figma design whose canvas width differs from the viewport, when writing or reviewing clamp()/vw/rem sizing or fluid-* Tailwind tokens, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked, handling negative clamp() values, font-size floors or mobile heading overflow, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation.
 metadata:
-  version: "3.5"
+  version: "4.0"
   last-updated: "2026-10-19"
 ---
 
@@ -10,13 +10,25 @@ metadata:
 
 Reusable standard for any Figma canvas built on a fixed frame width (Desktop Fluid + Responsive Tiers).
 
-**Version:** 3.5 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
+**Version:** 4.0 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
+
+**By stack:** this file is the standard for every stack (model, values, rules, checklist).
+- **Plain CSS / CSS Modules / SCSS** (also inside Next.js): this file is enough. Tokens as CSS custom properties: `python3 scripts/fluid_tokens.py --default --css`.
+- **Tailwind CSS v3 or v4** (with or without Next.js): also read [references/tailwind.md](references/tailwind.md) before writing classes. It maps these values to `fluid-*` tokens and covers the Tailwind-only pitfalls.
+
+**Never compute values by hand.** `scripts/fluid_tokens.py` applies the formulas below, including rounding and the font floor:
+
+```bash
+python3 scripts/fluid_tokens.py 377 --css       # one value as a custom property
+python3 scripts/fluid_tokens.py 22 36 --font    # font sizes, 15px floor applied
+python3 scripts/fluid_tokens.py --default --css # the Section 3 set as :root custom properties
+```
 
 ---
 
 ## 1. Configurable Parameters
 
-Configure these variables at project kickoff. All formulas and tables throughout this document derive automatically from these values:
+Configure these variables at project kickoff. All formulas and tables throughout this document derive from these values; if a project changes them, change the constants at the top of `scripts/fluid_tokens.py` to match (the Section 3 table and the tests assume the defaults):
 
 ```
 // --- Viewport Reference Frames (px) ---
@@ -274,11 +286,11 @@ When translating any dimension from Figma inspect mode:
 
 1. **Read `figma_px`** from Figma inspect (e.g., width, padding, gap, font-size).
 2. **Use the project's token if one exists** for that px (its tokens file, e.g. `tokens.css`; name tokens by the Figma px they represent, so a token never means two sizes).
-3. **Otherwise compute it with the Section 2 formulas** (`MIN` rounded to 0.5px, the font floor for font sizes):
+3. **Otherwise generate it with `scripts/fluid_tokens.py`** (`--font` for font sizes, `--css` for a custom property). The script applies the Section 2 formulas:
    - `MIN_rem = max(round_to_0.5(figma_px × 0.75), FONT_FLOOR_PX if font) / 16`
    - `fluid_vw = figma_px / 19.2`
    - `MAX_rem = figma_px / 12`
-   - Write: `clamp(MIN_rem, fluid_vw, MAX_rem)`. Do not round by hand: 4 decimals, as in Section 3.
+   - Result: `clamp(MIN_rem, fluid_vw, MAX_rem)`, 4 decimals, as in Section 3.
 4. **If styling columns inside a flex container:**
    - Ensure column's `flex-basis` or `max-width` uses 2K ceiling `MAX_rem` to prevent pinching.
    - For responsive breakpoints (`<= 1024px`), apply **The Responsive Flex Reset Rule** (`flex: 0 0 auto; width: 100%;`).
@@ -299,3 +311,13 @@ Before finalizing any PR or feature:
 - [ ] Typography checked against `FONT_FLOOR_PX` (15px minimum floor) and mobile heading clamps applied.
 - [ ] Tablet/mobile lateral padding is a fixed rem, not a fluid token.
 - [ ] Verified at **360px** and **375px** (Mobile), **768px** (Tablet portrait), **1024px** (Tablet landscape), **1440px** (Compact laptop), **1920px** (Desktop baseline), and **2560px** (2K ceiling) viewports without horizontal scrollbar or element collapse.
+
+---
+
+## Files
+
+| File | Read or run when |
+|---|---|
+| `references/tailwind.md` | The project uses Tailwind CSS (v3 or v4), with or without Next.js. |
+| `scripts/fluid_tokens.py` | Any value is needed: `--css` (custom properties), default (Tailwind v3 entries), `--v4` (`@theme` lines), `--class PREFIX` (arbitrary class); `--font` applies the floor; `--default` prints the Section 3 set. |
+| `scripts/test/test_fluid_tokens.py` | After editing the script or any table here or in `references/tailwind.md`: keeps them in sync. Python 3.9+, standard library only. |

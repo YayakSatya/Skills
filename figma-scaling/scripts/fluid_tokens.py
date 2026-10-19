@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Compute figma-scaling clamp() values and print them as Tailwind tokens.
+"""Compute figma-scaling clamp() values and print them as CSS custom properties or Tailwind tokens.
 
 Usage:
-    python3 fluid_tokens.py <figma_px> [<figma_px> ...] [--font] [--v4] [--class PREFIX]
-    python3 fluid_tokens.py --default [--v4]      # the standard token set (Section 1 of SKILL.md)
+    python3 fluid_tokens.py <figma_px> [<figma_px> ...] [--font] [--css | --v4 | --class PREFIX]
+    python3 fluid_tokens.py --default [--css | --v4]   # the standard token set (SKILL.md Section 3)
 
+    (no format)     Tailwind v3 config entries
     --font          apply FONT_FLOOR_PX (15px) to the minimum (font-size only)
-    --v4            print Tailwind v4 @theme lines instead of v3 config entries
+    --css           plain CSS custom properties in a :root block (--spacing-fluid-N, --text-fluid-N)
+    --v4            Tailwind v4 @theme lines (same names as --css)
     --class PREFIX  print a ready arbitrary-value class instead, e.g. --class flex-[0_1_
                     (top-level spaces already replaced by "_")
 
@@ -52,7 +54,7 @@ def main(argv):
     args = argv[1:]
     if not args:
         return usage()
-    v4, font = "--v4" in args, "--font" in args
+    v4, css, font = "--v4" in args, "--css" in args, "--font" in args
     prefix = None
     if "--class" in args:
         i = args.index("--class")
@@ -60,7 +62,7 @@ def main(argv):
             return usage("--class needs a PREFIX, e.g. --class 'flex-[0_1_'")
         prefix = args[i + 1]
         del args[i:i + 2]
-    unknown = [a for a in args if a.startswith("--") and a not in ("--v4", "--font", "--default")]
+    unknown = [a for a in args if a.startswith("--") and a not in ("--css", "--v4", "--font", "--default")]
     if unknown:
         return usage(f"unknown option {unknown[0]}")
 
@@ -80,6 +82,11 @@ def main(argv):
         if not nums:
             return usage("give at least one px value, or --default")
         groups = [("font" if font else "spacing", nums, font)]
+    if sum((v4, css, prefix is not None)) > 1:
+        return usage("pick one output format: --css, --v4 or --class")
+
+    if css:
+        print(":root {")
 
     for kind, values, is_font in groups:
         for v in values:
@@ -87,11 +94,13 @@ def main(argv):
             value = clamp(v, is_font)
             if prefix:
                 print(f"{prefix}{value.replace(', ', ',')}]")
-            elif v4:
+            elif v4 or css:
                 ns = "--text" if kind == "font" else "--spacing"
                 print(f"  {ns}-{name}: {value};  /* {v:g}px */")
             else:
                 print(f"  '{name}': '{value}',  // {v:g}px ({kind})")
+    if css:
+        print("}")
     return 0
 
 
