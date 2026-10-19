@@ -6,7 +6,7 @@ Claude skills by Yayak Satya. One folder per skill at the repo root, each with i
 | --- | --- |
 | `figma-taste/` | Anti-slop design built directly on the Figma canvas (site-wide design system, flex layout on a 1920/12-column guide, composition deal, Unsplash, audit and token check). Actively developed: follow the rules below. |
 | `figma-design-system-scan/` | Scans a Figma frame or page for reusable components and design tokens before any layout or code is generated. |
-| `figma-scaling/` | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling) with tablet and mobile derived proportionally from a desktop-only design, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). `scripts/fluid_tokens.py` generates the values; run `scripts/test/test_fluid_tokens.py` after changing the script or any token table, and `scripts/test/check_layout.test.mjs` after changing `scripts/check_layout.mjs`. Field notes go in `figma-scaling/notes/run-<n>.md` (client names not published). |
+| `figma-scaling/` | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling) with tablet and mobile derived proportionally from a desktop-only design, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). `scripts/fluid_tokens.py` generates the values; run `scripts/test/test_fluid_tokens.py` after changing the script or any token table, and `scripts/test/check_layout.test.mjs` after changing `scripts/check_layout.mjs`. Field notes from test runs stay local (`figma-scaling/notes/` is git-ignored); what they changed goes in the CHANGELOG. |
 
 ## Developing figma-taste
 

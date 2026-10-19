@@ -1,4 +1,5 @@
-// Runs check_layout.mjs on fixtures/layout.html, which reproduces problems from notes/run-1..3.
+// Runs check_layout.mjs on fixtures/layout.html, which reproduces problems from field notes runs 1-3
+// (summarised in CHANGELOG 5.1 and 5.2).
 // Needs Chrome (found like the script does, or CHROME=path); prints SKIP without it.
 //   node figma-scaling/scripts/test/check_layout.test.mjs
 import { fileURLToPath, pathToFileURL } from "node:url";

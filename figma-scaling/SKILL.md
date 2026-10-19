@@ -427,4 +427,3 @@ Before finalizing any PR or feature:
 | `scripts/fluid_tokens.py` | Any value is needed. Kind: spacing (default), `--font [body\|ui\|caption]`, `--grid`, `--size`. Options: `--mobile PX`, `--min-ratio R`. Output: `--css`, default (Tailwind v3 entries), `--v4` (`@theme` lines), `--class PREFIX`; `--default` prints the Section 3 and 8 sets. |
 | `scripts/check_layout.mjs` | After every layout change: line counts against 1920, one-word lines, em widths, first screen, overlap, clipped content, tap targets, overflow, at real sizes with touch. Node 22+ and Chrome, no dependencies. |
 | `scripts/test/test_fluid_tokens.py` | After editing the script or any table here or in `references/tailwind.md`: keeps them in sync. Python 3.9+, standard library only. |
-| `notes/run-<n>.md` | Field notes from real projects; each CHANGELOG entry says which notes it applied. Not needed to use the skill. |
