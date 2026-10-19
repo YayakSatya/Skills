@@ -65,7 +65,10 @@ Reference. Review always runs first: the other modes act on its verdicts.
 - One short question only when it changes the work: what the page is for and who it is for, if that is
   not obvious; whether there is a Mobile frame too. Otherwise take the obvious reading and say it.
 - `get_screenshot` of the frame (`maxDimension` 2400 for a desktop page, 1600 for mobile). For a long
-  page also screenshot the first screen and each section you will judge closely.
+  page also screenshot the first screen and each section you will judge closely: a 1920 × 10000 page
+  shrunk to one picture is too small to judge type. If the shell cannot download the returned URL
+  (a proxy refusing figma.com), pass `enableBase64Response: true`, one section per call. `node.screenshot()`
+  inside `use_figma` returned only some of several images in run 1; do not rely on it for more than one.
 
 ### 2. Inspect (measured)
 
@@ -74,16 +77,19 @@ Run it with `SUMMARY = true` first; run the full report when you need every find
 
 - `system`: the frame's own layout grid, type families and sizes, colours, spacing values and base,
   radii, text styles, variables and components in use. This is the standard for every later step.
-- `sections`: the top-level sections with their finding counts and a measured `hint`
-  (`keep`, `polish`, `look closer`).
+- `sections`: the top-level sections (empty stacked frames are skipped) with their finding counts and a
+  measured `hint` (`keep`, `polish`, `look closer`). Sections that share a name are labelled `sec #1`,
+  `sec #2`; use these labels in `compare.figma.js`'s `KEEP`.
 - `findings`, each with severity `major`, `minor` or `check`:
 
 | Rule | Measures |
 | --- | --- |
 | `contrast` | text against the fill behind it (WCAG 4.5:1 body, 3:1 large); `major` when far off |
-| `text-on-image` | text over a photograph or gradient: check it in the screenshot |
-| `clipped`, `empty-image`, `headline-lines` | text cut off by a clipping frame, an image slot without a picture, a headline past three lines |
-| `near-colour`, `near-size`, `near-spacing`, `near-radius` | a value used less, next to one used more (`#343434` beside `#333333`, 23 beside 24): probably a slip |
+| `text-on-image` | text over a photograph or gradient. Under a translucent shade the script computes the ratio over the lightest and darkest pixel: fails everywhere → `contrast` major; fails only on light parts → `check` with both ratios |
+| `clipped`, `empty-image`, `headline-lines` | text cut off by a clipping frame, an image slot without a picture, a headline past three lines (a sentence over 100 characters is a statement: `statement-lines` past four lines, minor) |
+| `overlap`, `overflow` | text wider than its fixed frame that runs into a neighbour (`major`); text sticking out with nothing hit, one finding per section |
+| `empty-layer`, `scaled` | an empty frame stacked on the page; spacing that is whole numbers only at another width (a 1440 design scaled ×1.33) |
+| `near-colour`, `near-size`, `near-spacing`, `near-radius` | a value used less, next to one used more (`#343434` beside `#333333`, 23 beside 24): probably a slip. One finding per pair, every layer in `ids`; two colours in different roles (surface and text) are a `check` |
 | `off-scale-spacing` | spacing off the 4 or 8 base the rest of the frame uses |
 | `near-edge`, `ragged` | left edges a few px apart in one section; more than four left edges |
 | `off-grid` | blocks starting (pictures and cards: also ending) off the frame's own column grid, when it has one |

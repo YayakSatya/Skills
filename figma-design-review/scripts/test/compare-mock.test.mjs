@@ -55,3 +55,21 @@ report([
   ['annotate CLEAR removes only Review notes', cleared.cleared === 2 && lede.annotations.length === 1 && lede.annotations[0].label === 'Dev: keep this copy'],
   ['compare is read-only on the original', !find(original, 'Features/Lede').annotations.length && find(original, 'Features/Cards').itemSpacing === 23],
 ]);
+
+// Same-named sections and an empty stacked frame (run 1): labels "sec #1", "sec #2" keep them apart.
+{
+  const { scaledPage } = await import('./fixture.mjs');
+  const orig = scaledPage('R:3');
+  const cp = duplicate(orig); cp.id = 'R:4'; place(cp);
+  const fg = makeFigma([orig, cp]);
+  const secs = cp.findAll(n => n.name === 'sec');
+  secs[1].itemSpacing = 85;                                   // edit sec #2 only
+  const ok = await run(fg, 'compare.figma.js', { "'ORIGINAL_ID'": "'R:3'", "'COPY_ID'": "'R:4'", 'const KEEP = [];': "const KEEP = ['hero', 'sec #1', 'cta'];" });
+  secs[0].paddingTop = 200;                                   // now sec #1 too
+  const bad = await run(fg, 'compare.figma.js', { "'ORIGINAL_ID'": "'R:3'", "'COPY_ID'": "'R:4'", 'const KEEP = [];': "const KEEP = ['hero', 'sec #1', 'cta'];" });
+  console.log('same-named:', ok.verdict, ok.sections.map(s => `${s.section}:${s.untouched ? 'untouched' : s.changed}`).join(' '), '|', bad.verdict, bad.keepViolations);
+  report([
+    ['same-named sections are told apart (sec #1 kept, sec #2 changed)', ok.verdict === 'OK' && ok.sections.find(s => s.section === 'sec #2')?.changed === 1 && ok.sections.find(s => s.section === 'sec #1')?.untouched],
+    ['editing sec #1 is a keep violation', bad.verdict === 'FAIL' && bad.keepViolations.join() === 'sec #1'],
+  ]);
+}

@@ -93,5 +93,5 @@ export async function run(figma, file, replace = {}) {
 
 export function report(checks) {
   for (const [label, ok] of checks) console.log(ok ? 'PASS' : 'FAIL', label);
-  process.exitCode = checks.every(c => c[1]) ? 0 : 1;
+  if (!checks.every(c => c[1])) process.exitCode = 1;   // never reset: a test may report more than once
 }

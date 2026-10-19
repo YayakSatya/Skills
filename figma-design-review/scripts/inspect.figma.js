@@ -30,13 +30,22 @@ const mix = (fg, bg, a) => '#' + rgb(fg).map((v, i) => Math.round(v * a + rgb(bg
 const count = (map, k, n) => { if (!map.has(k)) map.set(k, { n: 0, ids: [] }); const e = map.get(k); e.n++; if (n && e.ids.length < 40 && !e.ids.includes(n)) e.ids.push(n); };
 const sorted = map => [...map.entries()].sort((a, b) => b[1].n - a[1].n);
 
-// ---------- sections: the root's children, or the children of a single wrapper inside it
+// ---------- sections: the root's children, or the children of a single wrapper inside it.
+// Empty layers (no children, no paint) do not count: a forgotten empty frame stacked on the page
+// must not hide the real sections.
+const isEmptyLayer = n => 'children' in n && kids(n).length === 0 && paints(n.fills).length === 0 && paints(n.strokes).length === 0;
+const content = n => kids(n).filter(c => !isEmptyLayer(c));
 let secParent = ROOT;
-while (kids(secParent).length === 1 && secParent.type !== 'INSTANCE' && kids(kids(secParent)[0]).length > 1
-       && kids(secParent)[0].type !== 'INSTANCE') secParent = kids(secParent)[0];
-const sections = kids(secParent);
+while (content(secParent).length === 1 && secParent.type !== 'INSTANCE' && content(content(secParent)[0]).length > 1
+       && content(secParent)[0].type !== 'INSTANCE') secParent = content(secParent)[0];
+const sections = content(secParent);
 const secIds = new Set(sections.map(s => s.id));
 const sectionOf = n => { for (let p = n; p && p.id !== ROOT.id; p = p.parent) if (secIds.has(p.id)) return p; return null; };
+// sections often share a name ("sec", "Section"): label them "sec #2" so the table stays readable
+const secLabel = new Map();
+{ const seen = new Map(), total = new Map();
+  for (const s of sections) total.set(s.name, (total.get(s.name) || 0) + 1);
+  for (const s of sections) { const i = (seen.get(s.name) || 0) + 1; seen.set(s.name, i); secLabel.set(s.id, total.get(s.name) > 1 ? `${s.name} #${i}` : s.name); } }
 
 // ---------- walk visible nodes once
 const all = [];
@@ -45,6 +54,8 @@ const walk = (n, inInst) => {
 };
 walk(ROOT, ROOT.type === 'INSTANCE');
 const inInstance = new Map(all.map(e => [e.n.id, e.inInst]));
+const findingsEarly = [];
+for (const c of kids(ROOT)) if (isEmptyLayer(c)) findingsEarly.push(c);
 const outermostInstance = n => { let hit = null; for (let p = n.parent; p && p.id !== ROOT.id; p = p.parent) if (p.type === 'INSTANCE') hit = p; return hit; };
 const hasPaint = n => paints(n.fills).length > 0 || paints(n.strokes).length > 0;
 // "On the ground": not inside an instance, nor inside a filled or stroked container (a card) below the section.
@@ -55,7 +66,7 @@ const onGround = n => {
 };
 
 const findings = [];
-const add = (sev, rule, n, msg) => { const s = sectionOf(n); findings.push({ sev, rule, id: n.id, name: n.name, section: s ? s.name : null, msg }); };
+const add = (sev, rule, n, msg) => { const s = sectionOf(n); findings.push({ sev, rule, id: n.id, name: n.name, section: s ? secLabel.get(s.id) : null, sectionId: s ? s.id : null, msg }); };
 
 // ---------- the layout grid
 let grid = null, colStarts = [], colEnds = [];
@@ -98,10 +109,13 @@ for (const { n } of all.filter(e => e.n.type === 'TEXT')) {
 
 // ---------- system: colours, spacing, radius, variables, components
 const colours = new Map(), spacing = new Map(), radii = new Map(), comps = new Map(), varIds = new Map();
+const colourRole = new Map();   // hex → Set of 'text' | 'surface' | 'stroke'
 let boundPaints = 0, rawPaints = 0;
 for (const { n, inInst } of all) {
   for (const p of [...paints(n.fills), ...paints(n.strokes)]) {
     if (p.type !== 'SOLID') continue;
+    if (!inInst) { const h = hex(p.color); if (!colourRole.has(h)) colourRole.set(h, new Set());
+      colourRole.get(h).add(paints(n.strokes).includes(p) ? 'stroke' : n.type === 'TEXT' ? 'text' : 'surface'); }
     if (p.boundVariables && p.boundVariables.color) { boundPaints++; count(varIds, p.boundVariables.color.id); }
     else if (!inInst) rawPaints++;
     if (!inInst) count(colours, hex(p.color), n.id);
@@ -126,14 +140,25 @@ for (const [id, e] of sorted(varIds).slice(0, 40)) {
 }
 
 // ---------- near-duplicates: a value used less, close to one used more, is probably a slip
-const nearDupes = (map, close, rule, label) => {
+// One finding per pair of values, on the first layer, with every layer's id in `ids`.
+const nearDupes = (map, close, rule, label, roleNote) => {
   const entries = sorted(map);
   for (const [v, e] of entries) {
     const better = entries.find(([w, f]) => w !== v && f.n > e.n && close(v, w));
-    if (better) for (const id of e.ids) { const n = all.find(x => x.n.id === id); if (n) add('minor', rule, n.n, `${label(v)} next to ${label(better[0])} (used ${better[1].n}×): probably meant ${label(better[0])}`); }
+    if (!better) continue;
+    const nodes = e.ids.map(id => all.find(x => x.n.id === id)).filter(Boolean).map(x => x.n);
+    if (!nodes.length) continue;
+    const note = roleNote ? roleNote(v, better[0]) : null;
+    add(note ? 'check' : 'minor', rule, nodes[0], `${label(v)} on ${e.n} layer(s) next to ${label(better[0])} used ${better[1].n}×: ${note || `probably meant ${label(better[0])}`}`);
+    findings[findings.length - 1].ids = nodes.map(n => n.id);
   }
 };
-nearDupes(colours, (a, b) => dist(a, b) <= 14, 'near-colour', v => v);
+// two near-identical colours in different roles (a surface and a text ink) may be on purpose
+const roleNote = (a, b) => {
+  const ra = [...(colourRole.get(a) || [])], rb = [...(colourRole.get(b) || [])];
+  return ra.length && rb.length && !ra.some(r => rb.includes(r)) ? `${a} is used for ${ra.join('/')}, ${b} for ${rb.join('/')}; different roles, so check it is intended (warm and cool near-blacks side by side often read as a mismatch)` : null;
+};
+nearDupes(colours, (a, b) => dist(a, b) <= 14, 'near-colour', v => v, roleNote);
 nearDupes(spacing, (a, b) => Math.abs(a - b) <= 2, 'near-spacing', v => `${v}px`);
 nearDupes(radii, (a, b) => Math.abs(a - b) <= 2, 'near-radius', v => `radius ${v}`);
 nearDupes(sizes, (a, b) => Math.abs(a - b) <= Math.max(1, b * 0.04), 'near-size', v => `${v}px type`);
@@ -142,6 +167,19 @@ nearDupes(sizes, (a, b) => Math.abs(a - b) <= Math.max(1, b * 0.04), 'near-size'
 const spVals = sorted(spacing); const spTotal = spVals.reduce((s, [, e]) => s + e.n, 0);
 const share = b => spTotal ? spVals.filter(([v]) => v % b === 0).reduce((s, [, e]) => s + e.n, 0) / spTotal : 0;
 const spacingBase = share(8) >= 0.7 ? 8 : share(4) >= 0.7 ? 4 : null;
+// A design scaled up (1440 → 1920 is ×1.33) leaves values like 13, 27, 43, 213: whole even numbers
+// at the original size. Report the factor instead of calling every value off-scale.
+let scaled = null;
+if (!spacingBase && spTotal >= 8) {
+  const big = spVals.filter(([v]) => v >= 3); const bigTotal = big.reduce((t, [, e]) => t + e.n, 0);
+  const evenShare = f => bigTotal ? big.filter(([v]) => { const u = v / f; return Math.abs(u - 2 * Math.round(u / 2)) <= 0.3; }).reduce((t, [, e]) => t + e.n, 0) / bigTotal : 0;
+  const plain = evenShare(1);
+  for (const f of [4 / 3, 1.5, 2, 1.25]) {
+    const sh = evenShare(f);
+    if (sh >= 0.85 && sh - plain >= 0.3 && (!scaled || sh > scaled.share)) scaled = { factor: r2(f), raw: f, share: r2(sh), unscaledShare: r2(plain), from: Math.round(RB.width / f) };
+  }
+  if (scaled) scaled.examples = big.map(([v]) => v).filter(v => v % 2).sort((x, y) => y - x).slice(0, 3).map(v => `${v} = ${Math.round(v / scaled.raw)}×${scaled.factor}`);
+}
 if (spacingBase) for (const [v, e] of spVals) if (v % spacingBase !== 0 && v > 2) for (const id of e.ids) {
   const n = all.find(x => x.n.id === id); if (n && !findings.some(f => f.id === id && f.rule === 'near-spacing')) add('minor', 'off-scale-spacing', n.n, `${v}px is off the ${spacingBase}px spacing base the rest of the frame uses`);
 }
@@ -158,21 +196,33 @@ const ownBg = n => {
   }
   return null;
 };
+// Translucent solid layers (a scrim, a shade) between the text and what is behind it are collected
+// and composited: over a solid they give the exact colour, over a photograph a best and worst case.
+const overlayOf = n => {
+  const fs = paints(n.fills); const p = fs[fs.length - 1];
+  if (!p || p.type !== 'SOLID') return null;
+  const a = (p.opacity ?? 1) * (n.opacity ?? 1);
+  return a > 0.02 && a < 0.95 ? { hex: hex(p.color), a } : null;
+};
+const composite = (base, overlays) => overlays.slice().reverse().reduce((bg, o) => mix(o.hex, bg, o.a), base);
 const backgroundOf = t => {
-  const tb = box(t);
+  const tb = box(t); const overlays = [];
+  const look = n => { const bg = ownBg(n); if (bg) return bg; const o = overlayOf(n); if (o) overlays.push(o); return null; };
+  const done = bg => bg.hex ? { hex: composite(bg.hex, overlays) } : { ...bg, overlays };
   for (let n = t; n && n.parent; n = n.parent) {
     const par = n.parent;
     if ('children' in par) {
       const sibs = par.children; const idx = sibs.findIndex(c => c.id === n.id);
-      for (let i = idx - 1; i >= 0; i--) { const s = sibs[i]; if (s.visible === false || !coverBox(box(s), tb)) continue; const bg = ownBg(s); if (bg) return bg; }
+      for (let i = idx - 1; i >= 0; i--) { const s = sibs[i]; if (s.visible === false || !coverBox(box(s), tb)) continue; const bg = look(s); if (bg) return done(bg); }
     }
     if (par.type === 'PAGE') break;
-    const bg = ownBg(par); if (bg) return bg;
+    const bg = look(par); if (bg) return done(bg);
     if (par.id === ROOT.id) break;
   }
-  return { hex: '#FFFFFF', assumed: true };
+  return { hex: composite('#FFFFFF', overlays), assumed: true };
 };
 const mobile = RB.width <= 600;
+const overflows = [];   // text sticking out of a frame with nothing hit: one finding per section
 for (const { n } of all.filter(e => e.n.type === 'TEXT')) {
   const ti = textInfo.get(n.id); if (!ti || !ti.size) continue;
   const chars = (n.characters || '').trim(); if (!chars) continue;
@@ -184,13 +234,41 @@ for (const { n } of all.filter(e => e.n.type === 'TEXT')) {
     const need = large ? 3 : 4.5;
     if (ratio < need) add(ratio < need - 1 ? 'major' : 'minor', 'contrast', n, `contrast ${ratio}:1 (${fg} on ${bg.hex}${bg.assumed ? ', page white assumed' : ''}), needs ${need}:1 for ${large ? 'large' : 'body'} text`);
   } else if (bg.image || bg.gradient) {
-    add('check', 'text-on-image', n, `text on ${bg.image ? 'a photograph' : 'a gradient'}: check legibility in the screenshot (headline and the smaller text)`);
+    const what = bg.image ? 'a photograph' : 'a gradient';
+    if (ti.colour && bg.overlays.length) {
+      // the photo's lightest and darkest pixels under the overlay: the real ratio lies between
+      const fgOn = b => ti.alpha < 1 ? mix(ti.colour, b, ti.alpha) : ti.colour;
+      const onWhite = composite('#FFFFFF', bg.overlays), onBlack = composite('#000000', bg.overlays);
+      const worst = r2(Math.min(contrast(fgOn(onWhite), onWhite), contrast(fgOn(onBlack), onBlack)));
+      const best = r2(Math.max(contrast(fgOn(onWhite), onWhite), contrast(fgOn(onBlack), onBlack)));
+      const large = ti.size >= 24 || (ti.size >= 18.5 && ti.bold);
+      const need = large ? 3 : 4.5;
+      const shade = bg.overlays.map(o => `${o.hex} at ${Math.round(o.a * 100)}%`).join(' + ');
+      if (best < need) add('major', 'contrast', n, `on ${what} under ${shade}: at most ${best}:1 anywhere in the picture, needs ${need}:1`);
+      else if (worst < need) add('check', 'text-on-image', n, `on ${what} under ${shade}: ${worst}:1 where the picture is ${contrast(ti.colour, '#FFFFFF') > contrast(ti.colour, '#000000') ? 'dark' : 'light'}, ${best}:1 at best; needs ${need}:1, check the area behind it in the screenshot`);
+    } else add('check', 'text-on-image', n, `text on ${what} with no overlay: check legibility in the screenshot (headline and the smaller text)`);
   }
   if (ti.size < 12) add('minor', 'tiny-text', n, `${ti.size}px text is below 12px`);
   else if (mobile && ti.size < 14 && chars.length > 40) add('minor', 'small-body', n, `${ti.size}px running text on a phone frame; 14–16px reads better`);
   const lines = ti.lh ? Math.round(box(n).height / ti.lh) : 1;
-  if (ti.size >= 40 && lines > 3) add('major', 'headline-lines', n, `${ti.size}px headline runs ${lines} lines; cut words or widen it`);
-  else if (ti.size >= 32 && lines > 3) add('minor', 'headline-lines', n, `${ti.size}px heading runs ${lines} lines`);
+  // a long sentence set large is a statement, not a headline: judged more gently
+  const statement = chars.length > 100;
+  if (ti.size >= 40 && lines > 3 && !statement) add('major', 'headline-lines', n, `${ti.size}px headline runs ${lines} lines; cut words or widen it`);
+  else if (ti.size >= 32 && lines > 3 && !statement) add('minor', 'headline-lines', n, `${ti.size}px heading runs ${lines} lines`);
+  else if (ti.size >= 40 && lines > 4 && statement) add('minor', 'statement-lines', n, `${chars.length}-character statement at ${ti.size}px runs ${lines} lines; a shorter sentence or one step down the scale reads faster`);
+  // text wider than its (non-clipping) frame: spills out, and may run into a neighbour
+  const par = n.parent;
+  if (par && par.type !== 'PAGE' && par.id !== ROOT.id && !secIds.has(par.id) && !par.clipsContent) {
+    const tb = box(n), pb = box(par);
+    const right = tb.x + tb.width - (pb.x + pb.width), left = pb.x - tb.x;
+    if (right > 2 || left > 2) {
+      const strip = right > 2 ? { x: pb.x + pb.width, y: tb.y, width: right, height: tb.height } : { x: tb.x, y: tb.y, width: left, height: tb.height };
+      const hits = (par.parent && 'children' in par.parent ? par.parent.children : []).filter(c => c.id !== par.id && c.visible !== false && (() => {
+        const b = box(c); return b.x < strip.x + strip.width && b.x + b.width > strip.x && b.y < strip.y + strip.height && b.y + b.height > strip.y; })());
+      if (hits.length) add('major', 'overlap', n, `"${chars.slice(0, 24)}" is ${Math.round(Math.max(right, left))}px wider than its frame "${par.name}" and runs into "${hits[0].name}"; let the frame hug the text or move the neighbour`);
+      else overflows.push({ n, par, px: Math.round(Math.max(right, left)), chars });
+    }
+  }
   if (ti.size <= 24 && lines > 1) {
     const cpl = Math.round(box(n).width / (ti.size * 0.5));
     if (cpl > 95) add('minor', 'measure', n, `about ${cpl} characters per line; 60–80 reads better (narrow the text box)`);
@@ -201,6 +279,16 @@ for (const { n } of all.filter(e => e.n.type === 'TEXT')) {
   }
 }
 
+for (const sec of [...sections, null]) {
+  const o = overflows.filter(x => sectionOf(x.n) === sec).sort((a, b) => b.px - a.px);
+  if (!o.length) continue;
+  const worst = o[0];
+  add('minor', 'overflow', worst.n, o.length === 1
+    ? `"${worst.chars.slice(0, 24)}" sticks out of its frame "${worst.par.name}" by ${worst.px}px; let the frame hug the text`
+    : `${o.length} text layers stick out of their fixed-width frames by ${o[o.length - 1].px}–${worst.px}px (worst: "${worst.chars.slice(0, 24)}" in "${worst.par.name}"); let those frames hug their text${scaled ? ' (typical after scaling a design: the frames were scaled, the text reflowed)' : ''}`);
+  findings[findings.length - 1].ids = o.map(x => x.n.id);
+}
+
 // ---------- alignment: left edges on the ground of each section, and the column grid
 const blocksOf = sec => {
   const out = [], seen = new Set();
@@ -209,6 +297,15 @@ const blocksOf = sec => {
     const inst = outermostInstance(n);
     if (inst) { if (onGround(inst) && !seen.has(inst.id)) { seen.add(inst.id); out.push(inst); } continue; }
     if (!onGround(n)) continue;
+    // items of a row (nav links, buttons, footer columns, logos) other than the first do not make their
+    // own edge: a row of three or more, or of hugging items, is structured by the row itself
+    let inRow = false;
+    for (let c = n, p = n.parent; p; c = p, p = p.parent) {
+      const row = kids(p);
+      if (p.layoutMode === 'HORIZONTAL' && row[0] && row[0].id !== c.id && (row.length >= 3 || c.layoutSizingHorizontal === 'HUG')) { inRow = true; break; }
+      if (p.id === sec.id) break;
+    }
+    if (inRow) continue;
     const isImg = paints(n.fills).some(p => p.type === 'IMAGE');
     const isText = n.type === 'TEXT' && (n.textAlignHorizontal || 'LEFT') === 'LEFT';
     if (isText || n.type === 'INSTANCE' || isImg || (n.type !== 'TEXT' && hasPaint(n) && box(n).width < box(sec).width - 1)) { if (!seen.has(n.id)) { seen.add(n.id); out.push(n); } }
@@ -243,10 +340,12 @@ for (const sec of sections) {
         && !('findAll' in n && n.findAll(c => paints(c.fills).some(p => p.type === 'IMAGE')).length)) add('major', 'empty-image', n, 'image slot without a picture');
     if (mobile && (n.type === 'INSTANCE' || n.type === 'FRAME') && /button|btn|tombol|link|tab|icon/i.test(n.name) && box(n).height < 44 && !inInstance.get(n.id)) add('minor', 'tap-size', n, `tap target ${r2(box(n).height)}px high; 44px minimum on a phone`);
   }
-  secRows.push({ id: sec.id, name: sec.name, y: r2(box(sec).y - RB.y), height: r2(box(sec).height), blocks: blocks.length, leftEdges: distinct });
+  secRows.push({ id: sec.id, name: secLabel.get(sec.id), y: r2(box(sec).y - RB.y), height: r2(box(sec).height), blocks: blocks.length, leftEdges: distinct });
 }
 
 // ---------- system-level notes
+for (const e of findingsEarly) add('minor', 'empty-layer', e, `empty ${e.type.toLowerCase()} ${Math.round(e.width)}×${Math.round(e.height)} on the page: delete it (it can also catch clicks meant for the design)`);
+if (scaled) add('minor', 'scaled', ROOT, `spacing looks scaled ×${scaled.factor} from a ${scaled.from}-wide design: ${Math.round(scaled.share * 100)}% of the values are whole even numbers at that size (${Math.round(scaled.unscaledShare * 100)}% at this one)${scaled.examples.length ? `, e.g. ${scaled.examples.join(', ')}` : ''}; round to a scale at this size`);
 const famList = sorted(families);
 if (famList.length > 3) add('minor', 'families', ROOT, `${famList.length} type families (${famList.map(f => f[0]).join(', ')}); two usually do the work`);
 const sizeList = sorted(sizes).map(([v, e]) => ({ size: v, uses: e.n })).sort((a, b) => b.size - a.size);
@@ -256,7 +355,7 @@ if (sizeList.length > 12) add('minor', 'sizes', ROOT, `${sizeList.length} differ
 const sevRank = { major: 0, minor: 1, check: 2 };
 findings.sort((a, b) => sevRank[a.sev] - sevRank[b.sev]);
 for (const row of secRows) {
-  const f = findings.filter(x => x.section === row.name);
+  const f = findings.filter(x => x.sectionId === row.id);
   row.major = f.filter(x => x.sev === 'major').length;
   row.minor = f.filter(x => x.sev === 'minor').length;
   row.check = f.filter(x => x.sev === 'check').length;
@@ -270,7 +369,7 @@ const system = {
   sizes: sizeList,
   colours: sorted(colours).slice(0, 16).map(([v, e]) => ({ hex: v, uses: e.n })),
   spacing: spVals.map(([v, e]) => ({ px: v, uses: e.n })).sort((a, b) => a.px - b.px),
-  spacingBase,
+  spacingBase, scaled,
   radii: sorted(radii).map(([v, e]) => ({ radius: v, uses: e.n })),
   textStyles: { styled, unstyled, used: sorted(styleUse).map(([v, e]) => ({ style: v, uses: e.n })) },
   paints: { bound: boundPaints, raw: rawPaints },
@@ -280,7 +379,8 @@ const system = {
 const totals = { major: findings.filter(f => f.sev === 'major').length, minor: findings.filter(f => f.sev === 'minor').length, check: findings.filter(f => f.sev === 'check').length };
 if (SUMMARY) {
   const top = {};
-  for (const row of secRows) top[row.name] = findings.filter(f => f.section === row.name).slice(0, 5).map(f => `${f.sev} ${f.rule}: ${f.name} — ${f.msg}`);
+  top['(frame)'] = findings.filter(f => !f.sectionId).slice(0, 5).map(f => `${f.sev} ${f.rule}: ${f.name} — ${f.msg}`);
+  for (const row of secRows) top[row.name] = findings.filter(f => f.sectionId === row.id).slice(0, 5).map(f => `${f.sev} ${f.rule}: ${f.name} — ${f.msg}`);
   return { system, sections: secRows, totals, top };
 }
 return { system, sections: secRows, totals, findings: findings.slice(0, MAX_FINDINGS), truncated: findings.length > MAX_FINDINGS };

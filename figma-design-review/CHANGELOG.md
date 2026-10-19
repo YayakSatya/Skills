@@ -1,5 +1,25 @@
 # figma-design-review changelog
 
+## 1.1 — 2026-10-19 — after run 1 (first real file)
+
+Applied `notes/run-1.md` (Review mode on a real 1920 page, read-only). Every 1.0 rule and check still
+passes; message wording of near-value findings changed (one per pair), tests updated to match.
+
+### Verified here
+- In Figma, on the real page: `inspect.figma.js` as committed runs and returns 7 sections, 1 major
+  (the 420rb/m² overlap, confirmed in the screenshot), 18 minor, 1 check.
+- Node, mock Plugin API (55 checks, new `inspect-real-shape.test.mjs`): sections past an empty stacked
+  frame (1), same-named sections by id and label (2), scaled-design detection (3), contrast under a
+  translucent shade (4), overlap and grouped overflow (5), grouped near-values, row items not counted as
+  edges, long statements (6). `compare` labels same-named sections and skips empty layers.
+- `report()` in the test mock no longer resets a failure when a test reports twice.
+
+### Still to verify inside Figma
+- `compare.figma.js`, `annotate.figma.js`, `selftest.figma.js` and the Polish/Re-layout snippets.
+
+### Documentation
+- SKILL: screenshot fallbacks (base64, one section per call), new rules in the table, `KEEP` labels.
+
 ## 1.0 — 2026-10-19
 
 First version: review and lightly improve a design that already exists in Figma, keeping the

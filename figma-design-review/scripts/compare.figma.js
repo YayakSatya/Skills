@@ -7,7 +7,7 @@
 // layer in the copy shows up as one removal plus one addition.
 const ORIGINAL_ID = 'ORIGINAL_ID';   // e.g. '12:345'
 const COPY_ID = 'COPY_ID';           // e.g. '12:900'
-const KEEP = [];                     // section names, e.g. ['Hero', 'Footer']
+const KEEP = [];                     // section labels as inspect prints them, e.g. ['Hero', 'Footer', 'sec #2']
 const BUDGET = 0.25;                 // Polish 0.25, Re-layout 0.6
 const MAX_CHANGES = 200;
 
@@ -40,15 +40,24 @@ const kids = n => ('children' in n && n.children ? n.children : []);
 const keyed = n => { const seen = new Map(); return kids(n).map(c => { const i = seen.get(c.name) || 0; seen.set(c.name, i + 1); return [`${c.name}#${i}`, c]; }); };
 
 // sections, as in inspect: the children of the root, or of a single wrapper inside it
-const secParentOf = root => { let p = root; while (kids(p).filter(c => c.visible !== false).length === 1 && kids(kids(p)[0]).length > 1 && kids(p)[0].type !== 'INSTANCE') p = kids(p)[0]; return p; };
-const depthA = (() => { const target = secParentOf(A); let d = 0; for (let p = A; p !== target; p = kids(p).find(c => c.visible !== false)) d++; return d; })();
+// Empty layers (no children, no paint) are skipped when looking for the single wrapper.
+const paintsOf = arr => (Array.isArray(arr) ? arr : []).filter(p => p.visible !== false);
+const isEmptyLayer = n => 'children' in n && kids(n).filter(c => c.visible !== false).length === 0 && !paintsOf(n.fills).length && !paintsOf(n.strokes).length;
+const content = n => kids(n).filter(c => c.visible !== false && !isEmptyLayer(c));
+const secParentOf = root => { let p = root; while (content(p).length === 1 && content(content(p)[0]).length > 1 && content(p)[0].type !== 'INSTANCE') p = content(p)[0]; return p; };
+const depthA = (() => { const target = secParentOf(A); let d = 0; for (let p = A; p !== target; p = content(p)[0]) d++; return d; })();
+// section labels as inspect prints them: the name, or "sec #2" when sections share a name
+const labelA = new Map();
+{ const secs = content(secParentOf(A)), total = new Map(), seen = new Map();
+  for (const c of secs) total.set(c.name, (total.get(c.name) || 0) + 1);
+  for (const c of secs) { const i = (seen.get(c.name) || 0) + 1; seen.set(c.name, i); labelA.set(c.id, total.get(c.name) > 1 ? `${c.name} #${i}` : c.name); } }
 
 const changes = [], added = [], removed = [];
 const bySection = new Map();
 const sec = name => { if (!bySection.has(name)) bySection.set(name, { section: name, changed: 0, added: 0, removed: 0, nodes: 0 }); return bySection.get(name); };
 let total = 0, touched = 0;
 const pair = async (a, b, path, depth, section) => {
-  const secName = depth === depthA + 1 ? a.name : section;
+  const secName = depth === depthA + 1 ? labelA.get(a.id) || a.name : section;
   total++;
   if (secName) sec(secName).nodes++;
   let changedHere = false;
@@ -70,7 +79,7 @@ const pair = async (a, b, path, depth, section) => {
   // the copy's root may be renamed; its sections may not
   for (const [k, ca] of ka) {
     const cb = kb.get(k);
-    if (!cb) { removed.push({ section: secName || ca.name, path: [...path, ca.name].join(' / '), id: ca.id }); if (secName || depth === depthA) sec(secName || ca.name).removed++; continue; }
+    if (!cb) { const label = secName || labelA.get(ca.id) || ca.name; removed.push({ section: label, path: [...path, ca.name].join(' / '), id: ca.id }); if (secName || depth === depthA) sec(label).removed++; continue; }
     kb.delete(k);
     await pair(ca, cb, [...path, ca.name], depth + 1, secName);
   }
