@@ -1,0 +1,25 @@
+name: figma-taste
+
+on:
+  push:
+    paths: ['figma-taste/**', '.github/workflows/figma-taste.yml']
+  pull_request:
+    paths: ['figma-taste/**', '.github/workflows/figma-taste.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Min files are up to date
+        run: |
+          node figma-taste/scripts/build-min.mjs
+          git diff --exit-code -- figma-taste/scripts/*.min.figma.js
+      - name: Regression tests
+        run: |
+          status=0
+          for t in figma-taste/scripts/test/*.test.mjs; do node "$t" || status=1; done
+          exit $status

@@ -1,5 +1,46 @@
 # Changelog — figma-scaling
 
+- **5.1** (2026-10-19) — Applied `notes/run-1.md` (first field test of 5.0: a client home page, name not published; Next.js 16, Tailwind v4, 1920 frame with a Typography "Mobile" mode). No downgrade: `--default` output (v3, `--css`, `--v4`) and every existing spacing / `--font` / `--size` value are byte-identical to 5.0 (checked over 0.5–600px), so existing projects keep their tokens.
+  - **1 (bug) `--size --v4` namespace:** printed `--size-fluid-N`, which Tailwind 4 feeds only to `size-*`; `w-`, `h-`, `top-`, `max-w-` silently fell back to the spacing token. Now `--spacing-size-N` (and `--spacing-grid-N`), which feeds all of them. Reproduced and verified with Tailwind 4.1.11.
+  - **2 New kind `--grid`:** columns, cards, gutters, page margin, section heights and composed boxes are proportional from 1024 up (`clamp(px·1024/1920, vw, MAX)`), so the desktop composition kept down to 1024 always fits. From 1440 up it equals `--size` (within the 0.25px of the 1440 rounding). `--size` is now physical sizes only (icons, buttons). Section 4 column example and the Tailwind 377px examples moved to `--grid`. Checklist: overlap check at 1024 and 1280, not only scrollbars.
+  - **3 Composed boxes:** height, offsets and inner padding of a fixed-height box use the same kind (`--grid`), or the box uses `min-height` + padding (Section 8 Exceptions, Section 11 step 1 classification).
+  - **4 `--mobile PX`:** a phone value from a Figma mobile frame or Mobile variable mode replaces the derived one; a value above the 1440 value is allowed (line slopes down, new `clamp(MIN, max(A − Bvw, vw), MAX)` form). Workflow step 0 checks for one.
+  - **5 `--min-ratio R`:** generates a heading set so each phone size stays at least R× the next smaller one (capped by the desktop ratio and the 1440 value). Section 8 "Heading Hierarchy on Phones".
+  - **6 Font roles `--font body|ui|caption`:** floors 16 / 14 / 12, never above the Figma value, so captions match Figma at 1920. `--font` alone keeps the 15px floor (unchanged). Notes on 16px inputs (iOS zoom) and the 12px hard minimum.
+  - **7** Body line height ≥ 1.5 under ~18px on phones, per-tier override allowed (Section 8, Tailwind `max-lg:leading-normal`).
+  - **8** Tap targets: `min-height: 2.75rem` / `min-h-11` on interactive text by default; checklist re-measures after font token changes.
+  - **9** Designed line count: `font-size: min(token, calc((100vw − gutters) / EM_WIDTH))` pattern, checklist "keeps its designed line count at 360" (Tailwind form compiled with 3.4.17 and 4.1.11).
+  - **10** Section 6: stacked sections without a Figma padding use the design's most common section padding.
+  - **Verified here:** 23 tests (new: kinds, `--mobile`, roles never above Figma at 1920, `--min-ratio`, CLI), including a real Tailwind 3.4.17 / 4.1.11 compile of `references/tailwind.md` plus `--grid`/`--size` output, now run in CI. Chromium (Playwright, exact viewports 360–2560 incl. 1280) computes every new form within 0.016px of the script.
+  - **Not verified here:** the field project itself was not re-run on 5.1. The grid rule (note 2) and the line-count pattern (note 9) need a check on a real page at 1024 / 1280 / 360.
+- **5.0** (2026-10-19) — **Proportional tablet and mobile from a desktop-only design.** Most slicing projects have only the 1920 frame; until now every value stopped at its 1440 value (0.75×) below 1440, so a 120px section padding was still 90px on a phone and a 64px H1 still 48px on a tablet.
+  - **New model below 1440** (SKILL.md Section 2, formulas 4–5): spacing and font sizes get a derived phone value at 390 (`16 × (px/16)^0.6` for spacing, `^0.5` for font, 15px font floor, never above the 1440 value, never under a quarter of desktop) and follow a straight line from it to the 1440 value, extended down to 360. Tablet falls proportionally in between. Examples at 390: 120px padding → 53.5px, 80px → 42px, 64px H1 → 32px, 48px H2 → 27.5px; spacing up to 32px and font up to 24px keep their 1440 value.
+  - **Still one `clamp()`, no media query:** `clamp(LOW, max(min(A + Bvw, MIN), FLUID_vw), MAX)`. The phone line has a `rem` part, so below 1440 text also grows with browser zoom (the open zoom item from 3.5, for that range).
+  - **No change from 1440 up:** every value at 1440–3000 equals the three-point model (tested over 0.5–320px, spacing and font). Element sizes (column widths, icons, images, buttons) keep the three-point form everywhere through the new `--size` option.
+  - **Verified:** Chromium (Playwright, exact viewports 360, 390, 768, 1024, 1440, 1441, 1480, 1920, 2560) computes every default token within 0.016px of the script; Tailwind 3.4.17 and 4.1.11 compile the new tokens, `-mt-fluid-*` negation and an arbitrary `py-[...]` class with `_+_`.
+  - **Docs:** Section 3 and Section 8 tables now show px at 390 / 768 / 1440 / 1920 / 2560; Section 6 tiers only change layout (lateral padding stays a fixed 16/32px gutter); the mobile heading override is now a fallback check at 360px; element sizes and 44px tap targets in Exceptions; workflow step 1 classifies spacing / font / size. `references/tailwind.md`: regenerated tokens, `--size` for widths and heights, the 377px column example uses `--size`.
+  - **Script:** `--size`; `--class` also writes `_+_`. Parameters `MOBILE_FRAME`, `MOBILE_MIN_FRAME`, `SPACE_EXPONENT`, `FONT_EXPONENT` in Section 1 and at the top of the script.
+  - **Tests:** 16 (tables at every viewport, 1440-and-up identity, monotonic below 1440, phone and tablet values, font floor, printed CSS evaluated against the model, CLI).
+  - Open: the exponents are a first calibration; tune them in Section 1 and the script if a project's phone spacing reads too loose or too tight.
+- **4.0** (2026-10-19) — **Tailwind merged in.** `figma-scaling-tailwind` (1.3) is now part of this skill, so one install covers every stack and the model is written once:
+  - `references/tailwind.md`: the former Tailwind skill (tokens for v3 config and v4 `@theme`, line height, arbitrary classes, flex resets, `max-md:`/`max-lg:`, negative values, Next.js). Its "figma-scaling Section N" links now point to SKILL.md sections, whose numbers are unchanged.
+  - `scripts/fluid_tokens.py` moved here; new `--css` prints a `:root` block of custom properties (`--spacing-fluid-N`, `--text-fluid-N`, the same names as v4 `@theme`), so plain-CSS projects also generate values instead of computing them.
+  - SKILL.md: "By stack" routing at the top, workflow step 3 uses the script, Files table. Description covers both stacks.
+  - Tests moved to `scripts/test/` and extended: Section 8 font table, `--css` output, documented 377px example; 11 tests.
+  - No token values changed.
+- **3.5** (2026-10-19) — Review before merging the Tailwind version. No token value changes:
+  - **Section 6 padding bug**: tablet/mobile padding said `var(--space-8)` (32px). If that is a fluid token it sits at its 0.75× floor below 1440 (24px, not 32px). Now a fixed `2rem` / `1rem`, plus a checklist item.
+  - **Section 7 negative values**: CSS does not reject `clamp()` with MIN > MAX; MIN wins and the value freezes (verified in Chromium: -3px at 1440, 1920 and 2560). Wording fixed, and `calc(-1 * clamp(...))` added as the preferred form (verified: -3 → -4 → -5.33px).
+  - **Section 4 example**: 377px minimum follows the 0.5px rounding (`17.6875rem`, was `17.6718rem`).
+  - **Section 8**: font floor formula includes the rounding like Section 2; table of the font values that differ from spacing (12, 16, 18px); new subsection converting Figma line height (px → unitless) and letter spacing (% / px → em).
+  - **Section 11**: no longer assumes a `tokens.css` with `--space-*` / `--text-*-size` names the skill never defines; formulas now include rounding and the floor.
+  - **Section 12**: 360px check, unitless line height / em letter spacing, fixed tablet/mobile padding.
+  - Scrollbar note: `vw` includes a classic scrollbar, so the 1920 match is within ~1% on Windows.
+  - Open (not changed): between 1440 and 2560 the middle term is pure `vw`, so browser zoom grows text less than 200% (the rem floor still grows). Fixing it means a `rem + vw` middle term, which changes every value; left for a decision.
+- **3.4** (2026-10-19) — Consistency fixes, no value changes:
+  - `MAX_rem` formula no longer says `round_to_0.5`: the Section 3 table (and every project built from it) uses the unrounded `figma_px / 12`. The formula now matches the table.
+  - Font sizes under 11.25px: MAX is raised to the 15px floor so the clamp locks at 15px instead of having MIN > MAX.
+  - Description points Next.js + Tailwind projects to `figma-scaling-tailwind`.
 - **3.3** (2026-09-04) — **Responsive Breakpoint Architecture & Flex Reset Standard:**
   - Added **Section 5 (The Responsive Flex Reset Rule)** preventing 0px height collapse (`flex-basis: 0`) and giant ghost gaps (`flex-basis: clamp(...)`) when stacking flex rows into columns.
   - Added **Section 6 (Responsive Breakpoint Architecture)** defining `< 1024px` (Tablet tier: 32px lateral padding, hamburger nav, vertical stack) and `< 768px` (Mobile tier: 16px lateral padding, vertical form controls, map aspect ratio).
@@ -14,3 +55,24 @@
 - **3.0** (2026-08-28) — Added font-size floor (`FONT_FLOOR_PX = 15px`).
 - **2.0** (2026-08-11) — Added token mapping table, rounding rules, unitless line-height handling, and ultrawide cap.
 - **1.0** — Initial version (1920 → 1440, ratio 0.75).
+
+## Tailwind reference history (was the `figma-scaling-tailwind` skill)
+
+- **1.3** (2026-10-19) — Review fixes:
+  - **Line height**: `text-fluid-*` tokens set font-size only, unlike Tailwind's built-in `text-*`. New Section 1 subsection: pair every fluid text with a unitless leading (`leading-*`, the `text-fluid-32/tight` shorthand, or baked in with a v3 tuple / v4 `--text-*--line-height`). Workflow step 9 and a checklist item added. Both forms verified by compiling with Tailwind 3.4.17 and 4.1.11.
+  - **Font floor for tiny text**: 1.2 capped MIN at MAX, so Figma text under 11.25px came out below 15px (10px → a constant 13.33px). The script now locks those sizes at 15px. Token tables unchanged (all default sizes are 12px and up).
+  - **Tests**: `scripts/test/test_fluid_tokens.py` checks the script against the v3 and v4 tables in Section 1, the `figma-scaling` Section 3 table (15/15), the `--class` example, the font floor and spacing MIN ≤ MAX over 0.5–200px, and CLI errors. Runs in CI.
+  - **Script CLI**: a non-numeric value, a non-positive value, an unknown option or `--class` without a prefix now exits 2 with a message instead of a traceback.
+  - `px-fluid-*` output named per version (`padding-inline` in v4, `padding-left/right` in v3).
+- **1.2** (2026-10-18) — Packaged as a skill, with corrections:
+  - **Tailwind v4 namespaces**: font sizes must use `--text-*`; `--font-size-*` generates no `text-*` utility. Max widths use the documented `--container-*` namespace (`--max-width-*` also works in 4.1). Full v4 `@theme` block added.
+  - **Flex reset direction**: the 1.1 example `flex flex-row lg:flex-col` + `lg:flex-none lg:w-full` stacked on desktop and kept the row on mobile. Replaced with a desktop-first `max-lg:` pattern and a mobile-first `lg:` pattern.
+  - **Breakpoint table**: now shows that Tailwind prefixes are min-width while SCALING.md tiers are max-width, and the 1px boundary offset.
+  - **Checklist contradiction removed**: 1.1 Section 6 said the negative prefix works with clamp(), but the checklist forbade it. The checklist now matches Section 6.
+  - `max-*` variants exist since Tailwind v3.2 (1.1 said v3.4).
+  - 377px example minimum follows the formula's 0.5px rounding: `17.6875rem` (1.1 had the unrounded `17.6718rem`).
+  - Verified by compiling with Tailwind 3.4.17 and 4.1.11: negative prefix on clamp tokens and arbitrary values, `max-md:`/`max-lg:`, underscore rule (a spaced arbitrary class is not generated), v4 namespaces.
+  - Added `scripts/fluid_tokens.py` so agents generate clamp values instead of computing them by hand; output verified against the figma-scaling Section 3 table (15/15 match).
+  - Added lateral padding tiers in Tailwind, v4 `@source` / class-detection notes, and a 360px check.
+- **1.1** (2026-09-13) — Added Next.js notes: TS config location, App Router content globs, viewport zoom, `next/font` vs root font-size.
+- **1.0** (2026-09-13) — Initial Tailwind adaptation of SCALING.md v3.3.
