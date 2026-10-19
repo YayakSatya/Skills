@@ -2,7 +2,7 @@
 name: figma-scaling
 description: Converts Figma inspect px values into fluid CSS clamp() values using a 3-point scaling model (1440px laptop floor, 1920px Figma baseline, 2560px 2K ceiling) plus tablet/mobile breakpoint rules. Use whenever implementing a Figma design whose canvas width differs from the target viewport (e.g. a 1920px design rendered at 1440px or 2560px), when writing or reviewing clamp()/vw/rem sizing, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked at breakpoints, handling negative clamp() values or font-size floors, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation. For a Next.js + Tailwind project, use figma-scaling-tailwind instead.
 metadata:
-  version: "3.4"
+  version: "3.5"
   last-updated: "2026-10-19"
 ---
 
@@ -10,7 +10,7 @@ metadata:
 
 Reusable standard for any Figma canvas built on a fixed frame width (Desktop Fluid + Responsive Tiers).
 
-**Version:** 3.4 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
+**Version:** 3.5 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -69,8 +69,8 @@ property: clamp(MIN_rem, FLUID_vw, MAX_rem);
    ```
 
 ### Viewport Behavior:
-- **< 1440px (Mobile / Tablet):** `clamp()` locks to `MIN_rem`. (Mobile-specific breakpoint layouts apply below 1024px).
-- **1440px – 1920px (Laptop to 1080p):** Interpolates linearly. Exactly matches Figma at 1920px.
+- **< 1440px (Mobile / Tablet):** `clamp()` locks to `MIN_rem`. (Tablet and mobile layouts apply at 1024px and below, Section 6).
+- **1440px – 1920px (Laptop to 1080p):** Interpolates linearly. Exactly matches Figma at 1920px (`vw` includes a classic scrollbar, so on Windows the match is within ~1%).
 - **1920px – 2560px (1080p to 2K):** Interpolates linearly. Expands proportionally to eliminate empty lateral space on 2K displays.
 - **> 2560px (Ultrawide / 4K):** `clamp()` locks to `MAX_rem`. Container centers with `margin-inline: auto` (luxury pillarbox) preventing text distortion and exaggerated vertical scrolling on 21:9 monitors.
 
@@ -116,11 +116,11 @@ When an outer container widens to 2133px on 2K, but child columns are capped at 
 Always calculate child column `flex-basis` or `max-width` using the full 3-point formula:
 ```css
 /* Example: column is 377px in Figma 1920 */
-/* 1440 min = 282.75px (17.6718rem) */
+/* 1440 min = 282.75px → rounded to 283px (17.6875rem) */
 /* mid      = (377 / 19.2)vw = 19.6354vw */
 /* 2560 max = (377 * 1.3333) / 16 = 31.4167rem (502.7px) */
 .c-column {
-  flex: 0 1 clamp(17.6718rem, 19.6354vw, 31.4167rem);
+  flex: 0 1 clamp(17.6875rem, 19.6354vw, 31.4167rem);
 }
 ```
 
@@ -159,12 +159,12 @@ Always reset child sizing when stacking to column in media queries:
 Desktop fluid scaling (`clamp()` with `1440px` floor) applies to screens `>= 1025px`. For tablet and mobile, viewport widths drop far below `TARGET_FRAME = 1440px`. Fixed breakpoint overrides must enforce usability:
 
 ### 1. Tablet Tier (`@media (max-width: 1024px)`):
-- **Section Lateral Padding:** Lock to `var(--space-8)` (32px) or `var(--space-12) var(--space-8)` to prevent large fluid desktop padding (e.g. 90px) from crushing content width.
+- **Section Lateral Padding:** Lock to a **fixed** `2rem` (32px), e.g. `padding: 3rem 2rem`, to prevent large fluid desktop padding (e.g. 90px) from crushing content width. Use fixed rem here, never a fluid token: below 1440px a fluid token sits at its 0.75× floor (a 32px token gives 24px).
 - **Navigation:** Transition desktop link row to collapsed hamburger overlay menu.
 - **2-Column Layouts:** Transition complex multi-column side-by-side rows (e.g. Location map + text, 3-card highlights) to vertical stack.
 
 ### 2. Mobile Tier (`@media (max-width: 768px)`):
-- **Section Lateral Padding:** Lock to `var(--space-4)` (16px) or `var(--space-8) var(--space-4)`.
+- **Section Lateral Padding:** Lock to a fixed `1rem` (16px), e.g. `padding: 2rem 1rem`.
 - **Form Rows:** Form fields (`.c-field-row`) must stack vertically with `flex-direction: column` and `width: 100%`.
 - **Embedded Media & Maps:** Provide explicit `aspect-ratio: 4 / 3` (or `16 / 9`) and a safety floor `min-height: 280px` to prevent layout collapse.
 
@@ -172,18 +172,19 @@ Desktop fluid scaling (`clamp()` with `1440px` floor) applies to screens `>= 102
 
 ## 7. Negative Values in `clamp()`
 
-In CSS, `clamp(MIN, VAL, MAX)` strictly requires that `MIN <= MAX`.
+CSS resolves `clamp(MIN, VAL, MAX)` as `max(MIN, min(VAL, MAX))`. When MIN > MAX the rule is **not** rejected: MIN wins at every width, so the value silently stops scaling.
 
-For negative values (such as negative margins, tracking, or negative absolute positioning), smaller mathematical numbers are *more negative*:
+For negative values (negative margins, tracking, negative absolute positioning), the more negative number is the smaller one, so copying the positive order breaks it:
 
 ```css
-/* WRONG (evaluated as invalid or resolves only to min): */
-bottom: clamp(-0.1875rem, -0.2083vw, -0.25rem); /* -0.1875 is GREATER than -0.25 */
+/* WRONG: MIN (-3px) > MAX (-5.33px), so it is -3px at every width (verified in Chromium) */
+bottom: clamp(-0.1875rem, -0.2083vw, -0.3333rem);
 
-/* CORRECT: */
-/* MIN = -0.3333rem (-5.3px at 2560px) */
-/* VAL = -0.2083vw   (-4.0px at 1920px) */
-/* MAX = -0.1875rem (-3.0px at 1440px) */
+/* PREFERRED: keep the clamp positive and negate it */
+bottom: calc(-1 * clamp(0.1875rem, 0.2083vw, 0.3333rem));   /* -3px → -4px → -5.33px */
+
+/* ALSO CORRECT: hand-written negative clamp with the ends swapped */
+/* MIN = -0.3333rem (-5.33px at 2560px), VAL = -0.2083vw (-4px at 1920px), MAX = -0.1875rem (-3px at 1440px) */
 bottom: clamp(-0.3333rem, -0.2083vw, -0.1875rem);
 ```
 
@@ -196,13 +197,27 @@ Text below 15px strains readability regardless of scale ratios.
 - Spacing and container dimensions can scale down freely to 0.75x.
 - Font sizes must never fall below `FONT_FLOOR_PX`:
   ```
-  min_font_rem = max((figma_px * SCALE_RATIO_MIN), FONT_FLOOR_PX) / 16 rem
+  min_font_rem = max(round_to_0.5(figma_px * SCALE_RATIO_MIN), FONT_FLOOR_PX) / 16 rem
   ```
 - Example: Figma 18px text $\times 0.75 = 13.5\text{px}$ (below 15px).  
   Formula sets min to `0.9375rem` (15px):
   ```css
   font-size: clamp(0.9375rem, 0.9375vw, 1.5rem);
   ```
+- Font values that differ from the Section 3 spacing table (from 20px up they are identical):
+
+  | Figma text | Font `clamp()` |
+  |---|---|
+  | 12px | `clamp(0.9375rem, 0.625vw, 1rem)` |
+  | 16px | `clamp(0.9375rem, 0.8333vw, 1.3333rem)` |
+  | 18px | `clamp(0.9375rem, 0.9375vw, 1.5rem)` |
+
+  Under 11.25px the floor is above the 2560 value; the size locks at 15px (MAX raised to MIN).
+
+### Line Height & Letter Spacing from Figma
+Figma inspect gives line height in px and letter spacing in % or px. Convert both to relative units so they follow the fluid font size:
+- **Line height:** `figma_line_height_px / figma_font_px`, unitless, 2–3 decimals (e.g. 28 / 20 = `1.4`). Never paste the px value: a fixed line height does not scale with the clamp and overlaps lines at 2560.
+- **Letter spacing:** `%` ÷ 100 → `em` (e.g. -2% = `-0.02em`); px ÷ font px → `em`.
 
 ### Display & Heading Clamp for Mobile Screens
 The standard 1440px desktop floor for large display headings (H1, H2, quote titles) often results in sizes between `3rem` (48px) and `3.75rem` (60px). On 375px mobile viewports, this causes single words to overflow or wrap awkwardly.
@@ -221,7 +236,7 @@ The standard 1440px desktop floor for large display headings (H1, H2, quote titl
 - **Border-width:** Keep `1px` for hairlines (`--border-hairline: 1px`).
 - **Box-shadow:** Blur and spread stay constant unless explicitly specified.
 - **Pill/Circle radius:** `9999px` or `50%` are symbolic constants; do not scale.
-- **Unitless line-height:** Unitless multipliers (e.g. `1.6`, `1.2`) scale automatically with font size.
+- **Unitless line-height:** Unitless multipliers (e.g. `1.6`, `1.2`) scale automatically with font size (convert from Figma, see above).
 - **Relative letter-spacing:** Values expressed in `em` (e.g. `0.025em`) scale automatically.
 
 ---
@@ -258,13 +273,12 @@ The standard 1440px desktop floor for large display headings (H1, H2, quote titl
 When translating any dimension from Figma inspect mode:
 
 1. **Read `figma_px`** from Figma inspect (e.g., width, padding, gap, font-size).
-2. **Check if token exists in `tokens.css`:**
-   - Always use `var(--space-*)`, `var(--text-*-size)`, or component tokens first.
-3. **If writing a custom or component-level dimension:**
-   - Calculate `MIN_rem` $= (\text{figma\_px} \times 0.75) / 16$ (apply `FONT_FLOOR_PX` if font).
-   - Calculate `fluid_vw` $= (\text{figma\_px} / 19.2)\text{vw}$.
-   - Calculate `MAX_rem` $= (\text{figma\_px} \times 1.3333) / 16\text{rem} = (\text{figma\_px} / 12)\text{rem}$.
-   - Write: `clamp(MIN_rem, fluid_vw, MAX_rem)`.
+2. **Use the project's token if one exists** for that px (its tokens file, e.g. `tokens.css`; name tokens by the Figma px they represent, so a token never means two sizes).
+3. **Otherwise compute it with the Section 2 formulas** (`MIN` rounded to 0.5px, the font floor for font sizes):
+   - `MIN_rem = max(round_to_0.5(figma_px × 0.75), FONT_FLOOR_PX if font) / 16`
+   - `fluid_vw = figma_px / 19.2`
+   - `MAX_rem = figma_px / 12`
+   - Write: `clamp(MIN_rem, fluid_vw, MAX_rem)`. Do not round by hand: 4 decimals, as in Section 3.
 4. **If styling columns inside a flex container:**
    - Ensure column's `flex-basis` or `max-width` uses 2K ceiling `MAX_rem` to prevent pinching.
    - For responsive breakpoints (`<= 1024px`), apply **The Responsive Flex Reset Rule** (`flex: 0 0 auto; width: 100%;`).
@@ -280,7 +294,8 @@ Before finalizing any PR or feature:
 - [ ] Container `--layout-max` is set to `160rem` (2560px) and centers with `margin-inline: auto`.
 - [ ] No flex child column inside `--layout-content-max` has a max-width hardcoded to 1920px.
 - [ ] Multi-column flex children transitioning to `column` at responsive breakpoints apply `flex: 0 0 auto; width: 100%`.
-- [ ] Negative `clamp()` values satisfy `MIN <= MAX` (e.g. `clamp(-0.33rem, ..., -0.18rem)`).
-- [ ] Border-width (`1px`) and unitless line-heights are unscaled.
+- [ ] Negative fluid values use `calc(-1 * clamp(...))`, or a hand-written negative clamp with `MIN <= MAX` (e.g. `clamp(-0.33rem, ..., -0.18rem)`).
+- [ ] Border-width (`1px`) is unscaled; line-heights are unitless and letter-spacing is in `em` (no px from Figma inspect).
 - [ ] Typography checked against `FONT_FLOOR_PX` (15px minimum floor) and mobile heading clamps applied.
-- [ ] Verified at **375px** (Mobile), **768px** (Tablet portrait), **1024px** (Tablet landscape), **1440px** (Compact laptop), **1920px** (Desktop baseline), and **2560px** (2K ceiling) viewports without horizontal scrollbar or element collapse.
+- [ ] Tablet/mobile lateral padding is a fixed rem, not a fluid token.
+- [ ] Verified at **360px** and **375px** (Mobile), **768px** (Tablet portrait), **1024px** (Tablet landscape), **1440px** (Compact laptop), **1920px** (Desktop baseline), and **2560px** (2K ceiling) viewports without horizontal scrollbar or element collapse.

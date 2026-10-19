@@ -1,5 +1,14 @@
 # Changelog — figma-scaling
 
+- **3.5** (2026-10-19) — Review before merging the Tailwind version. No token value changes:
+  - **Section 6 padding bug**: tablet/mobile padding said `var(--space-8)` (32px). If that is a fluid token it sits at its 0.75× floor below 1440 (24px, not 32px). Now a fixed `2rem` / `1rem`, plus a checklist item.
+  - **Section 7 negative values**: CSS does not reject `clamp()` with MIN > MAX; MIN wins and the value freezes (verified in Chromium: -3px at 1440, 1920 and 2560). Wording fixed, and `calc(-1 * clamp(...))` added as the preferred form (verified: -3 → -4 → -5.33px).
+  - **Section 4 example**: 377px minimum follows the 0.5px rounding (`17.6875rem`, was `17.6718rem`).
+  - **Section 8**: font floor formula includes the rounding like Section 2; table of the font values that differ from spacing (12, 16, 18px); new subsection converting Figma line height (px → unitless) and letter spacing (% / px → em).
+  - **Section 11**: no longer assumes a `tokens.css` with `--space-*` / `--text-*-size` names the skill never defines; formulas now include rounding and the floor.
+  - **Section 12**: 360px check, unitless line height / em letter spacing, fixed tablet/mobile padding.
+  - Scrollbar note: `vw` includes a classic scrollbar, so the 1920 match is within ~1% on Windows.
+  - Open (not changed): between 1440 and 2560 the middle term is pure `vw`, so browser zoom grows text less than 200% (the rem floor still grows). Fixing it means a `rem + vw` middle term, which changes every value; left for a decision.
 - **3.4** (2026-10-19) — Consistency fixes, no value changes:
   - `MAX_rem` formula no longer says `round_to_0.5`: the Section 3 table (and every project built from it) uses the unrounded `figma_px / 12`. The formula now matches the table.
   - Font sizes under 11.25px: MAX is raised to the 15px floor so the clamp locks at 15px instead of having MIN > MAX.
