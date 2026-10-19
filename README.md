@@ -23,5 +23,12 @@ node figma-taste/scripts/build-min.mjs
 for t in figma-taste/scripts/test/*.test.mjs; do node "$t"; done
 ```
 
-CI runs the same commands on every push and pull request. Releases are tagged `figma-taste-v<N>`.
+`figma-scaling-tailwind`'s token script has standard-library tests (Python 3.9+) that keep it in
+sync with the token tables:
+
+```bash
+python3 figma-scaling-tailwind/scripts/test/test_fluid_tokens.py
+```
+
+CI runs these commands on every push and pull request that touches the skill. Releases are tagged `figma-taste-v<N>`.
 Contributor rules are in [CLAUDE.md](CLAUDE.md).

@@ -2,3 +2,4 @@
 node_modules/
 .figma-taste/
 *.log
+__pycache__/

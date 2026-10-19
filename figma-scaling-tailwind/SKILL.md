@@ -2,15 +2,15 @@
 name: figma-scaling-tailwind
 description: Next.js + Tailwind CSS version of the figma-scaling standard. Registers the 3-point fluid clamp() model (1440px floor, 1920px Figma baseline, 2560px ceiling) as named Tailwind tokens (p-fluid-32, text-fluid-24, max-w-layout) for Tailwind v3 config or v4 @theme, and gives the Tailwind-specific rules for arbitrary clamp() classes, flex column sizing and resets, max-md/max-lg mobile overrides, negative values, and Next.js App Router setup. Use whenever implementing a Figma design in a Next.js + Tailwind project where the Figma canvas width differs from the viewport, when writing or reviewing fluid-* tokens, tailwind.config fluid scales, @theme clamp tokens, arbitrary clamp() classNames, or fixing pinched flex columns, collapsed or ghost-gap stacked columns, or mobile heading overflow in Tailwind. For plain CSS or another framework, use figma-scaling instead.
 metadata:
-  version: "1.2"
-  last-updated: "2026-10-18"
+  version: "1.3"
+  last-updated: "2026-10-19"
 ---
 
 # Figma Scaling for Next.js + Tailwind
 
 Tailwind adaptation of the `figma-scaling` skill (SCALING.md v3.3): same formulas, same breakpoints, expressed as Tailwind tokens and utilities, plus Next.js setup.
 
-**Version:** 1.2 · **Last updated:** 2026-10-18 · Change history: [CHANGELOG.md](CHANGELOG.md)
+**Version:** 1.3 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
 
 **Scope:** projects confirmed to run **Next.js + Tailwind CSS** (v3 JIT or v4). Tailwind without Next.js: Sections 1-11 still apply, skip Section 12. Next.js without Tailwind, or plain CSS: use `figma-scaling` instead.
 
@@ -47,7 +47,7 @@ python3 scripts/fluid_tokens.py --default --v4              # -> the full Sectio
 
 ## 1. Token setup
 
-Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys but apply the 15px floor, so they differ from spacing below 24px.
+Spacing tokens are keyed by the Figma px they represent. Font tokens use the same keys but apply the 15px floor, so they differ from spacing below 24px. Below 11.25px the floor is above the 2560 value, so the script locks the size at 15px (`clamp(0.9375rem, …, 0.9375rem)`); CSS would resolve a hand-written MIN > MAX the same way, but the locked form says what it does.
 
 ### Tailwind v3 (`tailwind.config.ts` / `.js`)
 
@@ -148,7 +148,25 @@ v4 reads tokens from theme-variable **namespaces**, and the namespace decides wh
 </div>
 ```
 
-`px-fluid-32` resolves to `padding-inline: clamp(1.5rem, 1.6667vw, 2.6667rem)`. Spacing, sizing, gap, inset and position utilities all draw from the spacing scale, so one token set covers them.
+`px-fluid-32` resolves to `padding-inline: clamp(1.5rem, 1.6667vw, 2.6667rem)` in v4 (`padding-left` + `padding-right` in v3). Spacing, sizing, gap, inset and position utilities all draw from the spacing scale, so one token set covers them.
+
+### Line height: always pair `text-fluid-*` with a leading
+
+Tailwind's own `text-xl` etc. set a line-height; the `text-fluid-*` tokens above set **font-size only**. Without a leading, a heading inherits the body's line-height (often 1.5) and reads loose. Pick one, per project:
+
+- **Per element**: `text-fluid-32 leading-tight`, or the shorthand `text-fluid-32/tight` (v3.3+ and v4).
+- **Baked into the token** (verified with 3.4.17 and 4.1.11; `leading-*` still overrides it):
+  ```js
+  // v3
+  fontSize: { 'fluid-32': ['clamp(1.5rem, 1.6667vw, 2.6667rem)', { lineHeight: '1.2' }] }
+  ```
+  ```css
+  /* v4 */
+  --text-fluid-32: clamp(1.5rem, 1.6667vw, 2.6667rem);
+  --text-fluid-32--line-height: 1.2;
+  ```
+
+Take the value from Figma (line height ÷ font size, unitless) so it follows the fluid size. Never a px or rem line-height: it would not scale with the clamp.
 
 ---
 
@@ -307,6 +325,7 @@ Tailwind's defaults already behave correctly for these; do not create fluid toke
 6. Row stacks into a column: pair the fluid basis with its reset in the same className, in the right direction (Section 4).
 7. Mobile-only overrides: `max-md:` / `max-lg:`, never `md:` / `lg:` (Section 7).
 8. Negative offsets: negative prefix on a positive token or clamp (Section 6).
+9. Every `text-fluid-*` gets a unitless leading from Figma, per element or baked into the token (Section 1).
 
 ---
 
@@ -320,6 +339,7 @@ Everything in `figma-scaling` Section 12, plus:
 - [ ] Mobile-only overrides use `max-md:` / `max-lg:` (or a custom max-width screen), not `md:` / `lg:`.
 - [ ] Negative fluid offsets use the negative prefix on a positive value; any hand-written negative clamp has MIN ≤ MAX.
 - [ ] Values reused 3+ times are tokens, not repeated arbitrary classes.
+- [ ] Every `text-fluid-*` has a unitless line-height (a `leading-*`, the `/leading` shorthand, or one baked into the token).
 - [ ] Tailwind scans every file containing `fluid-*` or arbitrary clamp classes (v3 `content` globs; v4 automatic detection or `@source` for paths outside the project).
 - [ ] No custom `1440:` / `2560:` breakpoints.
 - [ ] Layout checked at 360, 768, 1024, 1440, 1920 and 2560.
@@ -359,4 +379,5 @@ Everything in `figma-scaling` Section 12, plus:
 
 ## Bundled files
 
-- `scripts/fluid_tokens.py`: computes clamp values with the figma-scaling formulas and prints v3 config entries, v4 `@theme` lines (`--v4`), or a ready arbitrary class (`--class PREFIX`); `--font` applies the 15px floor; `--default` prints the Section 1 set.
+- `scripts/fluid_tokens.py`: computes clamp values with the figma-scaling formulas and prints v3 config entries, v4 `@theme` lines (`--v4`), or a ready arbitrary class (`--class PREFIX`); `--font` applies the 15px floor; `--default` prints the Section 1 set. Bad input exits 2 with a message.
+- `scripts/test/test_fluid_tokens.py`: standard-library tests that keep the script, the Section 1 tables and the `figma-scaling` Section 3 table in sync, and check the font floor. Run `python3 scripts/test/test_fluid_tokens.py` after any change to either.

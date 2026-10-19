@@ -1,16 +1,16 @@
 ---
 name: figma-scaling
-description: Converts Figma inspect px values into fluid CSS clamp() values using a 3-point scaling model (1440px laptop floor, 1920px Figma baseline, 2560px 2K ceiling) plus tablet/mobile breakpoint rules. Use whenever implementing a Figma design whose canvas width differs from the target viewport (e.g. a 1920px design rendered at 1440px or 2560px), when writing or reviewing clamp()/vw/rem sizing, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked at breakpoints, handling negative clamp() values or font-size floors, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation.
+description: Converts Figma inspect px values into fluid CSS clamp() values using a 3-point scaling model (1440px laptop floor, 1920px Figma baseline, 2560px 2K ceiling) plus tablet/mobile breakpoint rules. Use whenever implementing a Figma design whose canvas width differs from the target viewport (e.g. a 1920px design rendered at 1440px or 2560px), when writing or reviewing clamp()/vw/rem sizing, fixing flex columns that look pinched ("menyempit") on wide screens or collapse/leave ghost gaps when stacked at breakpoints, handling negative clamp() values or font-size floors, or when the user mentions Figma scaling, SCALING.md, fluid typography, or pixel-perfect-but-responsive implementation. For a Next.js + Tailwind project, use figma-scaling-tailwind instead.
 metadata:
-  version: "3.3"
-  last-updated: "2026-09-04"
+  version: "3.4"
+  last-updated: "2026-10-19"
 ---
 
 # Figma Scaling Strategy: Figma → Implementation
 
 Reusable standard for any Figma canvas built on a fixed frame width (Desktop Fluid + Responsive Tiers).
 
-**Version:** 3.3 · **Last updated:** 2026-09-04 · Change history: [CHANGELOG.md](CHANGELOG.md)
+**Version:** 3.4 · **Last updated:** 2026-10-19 · Change history: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -62,9 +62,10 @@ property: clamp(MIN_rem, FLUID_vw, MAX_rem);
 
 3. **2K Ceiling (`MAX_rem` at MAX_FRAME):**
    ```
-   max_px  = round_to_0.5(figma_px * SCALE_RATIO_MAX)
-   MAX_rem = max_px / BASE_REM_PX rem
+   max_px  = figma_px * SCALE_RATIO_MAX        // not rounded, as in the Section 3 table
+   MAX_rem = max_px / BASE_REM_PX rem          // 4 decimals
    // For 1920 -> 2560 (1.3333x): MAX_rem = figma_px / 12 rem
+   // Font only: if MAX_rem < MIN_rem (Figma text under 11.25px), set MAX_rem = MIN_rem (locks at 15px)
    ```
 
 ### Viewport Behavior:
