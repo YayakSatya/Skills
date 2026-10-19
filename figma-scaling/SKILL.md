@@ -148,7 +148,7 @@ Always calculate child column `flex-basis` or `max-width` using the full 3-point
 1. **0px Height Collapse (Disappearing Cards):**  
    If a child has `flex: 1 1 0` or `flex-basis: 0` in horizontal layout, switching to vertical column turns the main axis to vertical. With no explicit parent height, `flex-basis: 0` calculates item height as **0px**, causing components (e.g. facility/highlight cards) to completely vanish.
 2. **Giant Vertical Ghost Gaps:**  
-   If a child has `flex: 0 1 clamp(17.67rem, ...)`, switching to vertical column causes the browser to treat that clamp value as the **minimum vertical height reservation**, generating massive unwanted blank gaps between stacked columns (e.g. footer sections).
+   If a child has `flex: 0 1 clamp(17.6875rem, ...)`, switching to vertical column causes the browser to treat that clamp value as the **minimum vertical height reservation**, generating massive unwanted blank gaps between stacked columns (e.g. footer sections).
 
 ### Standard Fix:
 Always reset child sizing when stacking to column in media queries:
