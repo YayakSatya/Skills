@@ -1,0 +1,62 @@
+# figma-design-review changelog
+
+## 1.1 — 2026-10-19 — after run 1 (first real file)
+
+Applied `notes/run-1.md` (Review mode on a real 1920 page, read-only). Every 1.0 rule and check still
+passes; message wording of near-value findings changed (one per pair), tests updated to match.
+
+### Verified here
+- In Figma, on the real page: `inspect.figma.js` as committed runs and returns 7 sections, 1 major
+  (the 420rb/m² overlap, confirmed in the screenshot), 18 minor, 1 check.
+- Node, mock Plugin API (55 checks, new `inspect-real-shape.test.mjs`): sections past an empty stacked
+  frame (1), same-named sections by id and label (2), scaled-design detection (3), contrast under a
+  translucent shade (4), overlap and grouped overflow (5), grouped near-values, row items not counted as
+  edges, long statements (6). `compare` labels same-named sections and skips empty layers.
+- `report()` in the test mock no longer resets a failure when a test reports twice.
+
+### Still to verify inside Figma
+- `compare.figma.js`, `annotate.figma.js`, `selftest.figma.js` and the Polish/Re-layout snippets.
+
+### Documentation
+- SKILL: screenshot fallbacks (base64, one section per call), new rules in the table, `KEEP` labels.
+
+## 1.0 — 2026-10-19
+
+First version: review and lightly improve a design that already exists in Figma, keeping the
+designer's own system.
+
+### Added
+- `SKILL.md`: four modes (Review, Polish, Re-layout, Reference) with a change budget each; ground rules
+  (the original is never edited, the design's own system wins, the words stay, Keep sections untouched,
+  every change annotated, measured versus seen).
+- `scripts/inspect.figma.js` (read-only): learns the frame's grid, type, colours, spacing, radii, styles,
+  variables and components; reports contrast, text on images, clipped text, empty image slots, long
+  headlines, near-duplicate values, off-scale spacing, near and ragged left edges, off-grid blocks,
+  line length, tiny text and phone tap sizes; per-section table with a measured hint.
+- `scripts/compare.figma.js` (read-only): every change between original and copy by section, Keep
+  violations, misspelt Keep names, share of layers touched against the mode's budget.
+- `scripts/annotate.figma.js`: `Review:` annotations; clearing removes only these.
+- `references/review-lenses.md`, `references/editing.md`, `assets/review-template.md`.
+
+### Verified here (Node, mock Plugin API: 38 checks)
+- `inspect`: on a 1440 page with planted slips it finds each one (23 vs 24 gap, radius 13 vs 12,
+  `#343434` vs `#333333`, 15 vs 16px, a 3px edge, `#BBBBBB` caption at 1.9:1, empty image, clipped
+  quote, off-grid picture, 160-character lines) and stays quiet on what is fine (white on `#111111`,
+  text inside cards, ragged-right text ends, 14px captions next to 16px body). Read-only.
+- `compare`: an untouched, renamed and moved copy shows zero changes; a four-fix Polish stays inside
+  Features and under budget; an edit in a Keep section fails the verdict; a misspelt Keep name is
+  reported; added layers are counted per section.
+- `annotate`: no duplicate notes on re-run; other people's annotations kept; clear removes only ours.
+
+### Still to verify inside Figma
+- All three scripts ran only against the mock. Run `inspect` and `compare` on a real file first
+  (expected differences: `absoluteBoundingBox` on rotated layers, `getStyledTextSegments` on text with
+  mixed fills, instance children identity).
+- The duplicate and edit snippets in `references/editing.md`.
+- `scripts/selftest.figma.js`: builds the test page with real nodes (styles, a colour variable, a Button
+  component, an image fill) plus a polished copy, and lists what `inspect` and `compare` must return on
+  them. Parsed in Node only; not yet run in Figma (no scratch file was made in this session).
+
+### Open
+- Mobile-specific checks are light (small body text, tap size); a run on a real phone frame should say
+  what else to measure.

@@ -5,6 +5,7 @@ Claude skills by Yayak Satya. Each folder at the root is one skill with its own 
 | Skill | What it does |
 | --- | --- |
 | [`figma-taste/`](figma-taste/) | Anti-slop design built directly on the Figma canvas: a site-wide design system, flex layout on a 1920 / 12-column guide, dealt compositions, Unsplash imagery, and an in-canvas audit and token check. See its [CHANGELOG](figma-taste/CHANGELOG.md). |
+| [`figma-design-review/`](figma-design-review/) | Reviews and lightly improves an existing Figma design without taking it over: a read-only audit against the design's own system with a verdict per section (Keep, Polish, Rework), then small fixes or a re-layout on a copy, or reference alternatives for a section. A compare script proves the Keep sections stayed untouched. See its [CHANGELOG](figma-design-review/CHANGELOG.md). |
 | [`figma-design-system-scan/`](figma-design-system-scan/) | Scans a Figma frame or page for reusable components and design tokens before any layout or code is generated. |
 | [`figma-scaling/`](figma-scaling/) | Converts Figma px values into fluid `clamp()` values (1440 floor, 1920 baseline, 2560 ceiling), with tablet and mobile derived proportionally from a desktop-only design, for plain CSS and Tailwind v3/v4 (`references/tailwind.md`). Includes `scripts/fluid_tokens.py`. See its [CHANGELOG](figma-scaling/CHANGELOG.md). |
 
@@ -20,6 +21,12 @@ project's `.claude/skills/`.
 ```bash
 node figma-taste/scripts/build-min.mjs
 for t in figma-taste/scripts/test/*.test.mjs; do node "$t"; done
+```
+
+`figma-design-review` has the same kind of Node tests:
+
+```bash
+for t in figma-design-review/scripts/test/*.test.mjs; do node "$t"; done
 ```
 
 `figma-scaling`'s token script has standard-library tests (Python 3.9+) that keep it in sync with

@@ -1,5 +1,12 @@
 # figma-taste changelog
 
+## 2026-10-19 (c) — pointer to figma-design-review
+
+Documentation only; no script, rule or output changed (tests still pass).
+- The skill description now sends requests to review or lightly fix a design the user already made to
+  the new `figma-design-review` skill, which keeps the designer's own system and never edits the
+  original. figma-taste still handles "redesign" and "polish" when the page is built or rebuilt here.
+
 ## 2026-10-19 (b) — after run 2 (Arunika, two options)
 
 Applied `figma-taste-revision-notes.md` (run 2). Rule kept throughout: **no downgrade**. Every v2 audit
